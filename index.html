@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pcklst</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2f6b4f">
+<style>
+:root{
+  --bg:#f6f5f1;--card:#ffffff;--ink:#1f2a24;--mute:#6b766f;--line:#e3e1d9;
+  --acc:#2f6b4f;--acc-ink:#ffffff;--soft:#e8efe9;--danger:#b3402f;--warn:#b9770e;
+  --chk1:#e9e9e4;--chk2:#f8f8f5;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161a17;--card:#1f2521;--ink:#eceee9;--mute:#98a39b;--line:#2d352f;
+  --acc:#5fb28a;--acc-ink:#0f1a14;--soft:#25302a;--danger:#e0705e;--warn:#e0a24a;--chk1:#2a302c;--chk2:#323934}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.wrap{max-width:720px;margin:0 auto;padding:16px 14px 150px}
+h1{font-size:22px;margin:4px 0 2px}
+.sub{color:var(--mute);font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+.top .r{display:flex;align-items:flex-end;gap:12px}
+.total{text-align:right}
+.total b{font-size:22px;display:block}
+.gear{border:0;background:var(--soft);border-radius:50%;width:38px;height:38px;font-size:18px}
+.search{width:100%;padding:11px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);margin-bottom:10px}
+.srow{display:flex;gap:8px;margin-bottom:10px}
+.srow .search{margin:0;flex:1}
+.srow select{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:0 10px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:7px 13px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px;white-space:nowrap}
+.chip.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.chip.ghost{border-style:dashed;color:var(--mute)}
+.sec{display:flex;justify-content:space-between;align-items:baseline;margin:16px 2px 8px;color:var(--mute);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-align:left;padding:0;display:flex;flex-direction:column;position:relative}
+.card .im{aspect-ratio:1/1;background:var(--soft);display:flex;align-items:center;justify-content:center}
+.card .im img{width:100%;height:100%;object-fit:contain;padding:8px}
+.card .im span{font-size:34px;opacity:.5}
+.card .tx{padding:9px 11px 11px}
+.card .nm{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .mt{color:var(--mute);font-size:13px}
+.bd{display:flex;gap:4px;flex-wrap:wrap;margin-top:5px}
+.b{font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--soft);color:var(--mute)}
+.b.red{background:var(--danger);color:#fff}.b.ora{background:var(--warn);color:#fff}
+.lrow{display:flex;align-items:center;gap:12px;width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;text-align:left;margin-bottom:8px}
+.lrow .th{width:54px;height:54px;border-radius:10px;background:var(--soft);display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden}
+.lrow .th img{width:100%;height:100%;object-fit:contain}
+.lrow .tt{flex:1;min-width:0}
+.lrow .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrow .mt{color:var(--mute);font-size:13px}
+.empty{text-align:center;color:var(--mute);padding:50px 20px}
+.fab{position:fixed;right:18px;bottom:82px;width:58px;height:58px;border-radius:50%;border:0;background:var(--acc);color:var(--acc-ink);font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.25);z-index:5}
+.nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:4;padding-bottom:env(safe-area-inset-bottom)}
+.nav .in-nav{display:flex;width:100%;max-width:720px}
+.nav button{flex:1;border:0;background:none;padding:9px 2px 8px;font-size:12px;color:var(--mute);display:flex;flex-direction:column;align-items:center;gap:1px}
+.nav button i{font-style:normal;font-size:20px}
+.nav button.on{color:var(--acc);font-weight:700}
+.banner{background:#fff3cd;color:#5c4a00;padding:8px 12px;border-radius:10px;font-size:13px;margin-bottom:10px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.panel h3{margin:0 0 8px;font-size:14px;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border:0}.kv span:first-child{color:var(--mute)}.kv span:last-child{text-align:right;font-weight:600}
+.bar{height:8px;border-radius:8px;background:var(--soft);overflow:hidden;margin-top:3px}
+.bar>i{display:block;height:100%;background:var(--acc);border-radius:8px}
+.bar.over>i{background:var(--danger)}
+.brow{margin:8px 0}.brow .l{display:flex;justify-content:space-between;font-size:14px}
+.stat3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.stat3 b{display:block;font-size:18px}.stat3 span{font-size:12px;color:var(--mute)}
+
+/* Sheet */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:10}
+.ov.show{display:block}
+.sheet{position:absolute;left:0;right:0;bottom:0;top:28px;background:var(--bg);border-radius:18px 18px 0 0;overflow:auto;max-width:720px;margin:0 auto;padding:14px 14px 40px}
+.sh-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.sh-h h2{margin:0;font-size:19px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.x{border:0;background:var(--soft);border-radius:50%;width:36px;height:36px;font-size:18px;flex:none}
+.btn{border:1px solid var(--line);background:var(--card);padding:11px 14px;border-radius:12px;font-weight:600}
+.btn.pri{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.btn.dng{color:var(--danger)}
+.btn.dng.arm{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn.sm{padding:7px 10px;font-size:14px}
+.btn.pick{position:relative;overflow:hidden;text-align:center;display:block}
+.btn.pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:200px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1;min-width:0}
+label.f{display:block;font-size:13px;color:var(--mute);margin:12px 0 4px;font-weight:600}
+.in{width:100%;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:var(--card);min-width:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card)}
+.seg button{flex:1;border:0;background:none;padding:10px 4px;font-size:14px}
+.seg button.on{background:var(--acc);color:var(--acc-ink);font-weight:700}
+details.more{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);padding:2px 12px 12px}
+details.more summary{padding:12px 0 4px;font-weight:700;cursor:pointer}
+.stage{background:repeating-conic-gradient(var(--chk1) 0% 25%,var(--chk2) 0% 50%) 0 0/20px 20px;border-radius:14px;border:1px solid var(--line);overflow:hidden;display:flex;justify-content:center;margin:8px 0}
+.stage canvas{max-width:100%;max-height:56vh;touch-action:none;display:block}
+.stage.none{min-height:120px;align-items:center;color:var(--mute);background:var(--soft)}
+.tools{display:flex;gap:6px;margin:6px 0}
+.tools .btn{flex:1;padding:9px 6px;font-size:14px}
+.tools .btn.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.hint{font-size:13px;color:var(--mute);margin:4px 0}
+.catrow{display:flex;gap:8px;margin-bottom:8px}
+.catrow .in{flex:1}
+.thumbs{display:flex;gap:8px;overflow-x:auto;padding:4px 0}
+.thumbs .t{position:relative;flex:none;width:76px;height:76px;border-radius:10px;overflow:hidden;background:var(--soft)}
+.thumbs img{width:100%;height:100%;object-fit:cover}
+.thumbs .t button{position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:12px}
+.thumbs.view .t{width:120px;height:120px}
+.ck{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.ck input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.ck .th{width:38px;height:38px;border-radius:8px;background:var(--soft);overflow:hidden;flex:none}
+.ck .th img{width:100%;height:100%;object-fit:contain}
+.ck .tt{flex:1;min-width:0}
+.ck .tt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ck .tt .mt{font-size:12px;color:var(--mute)}
+.ck.packed .nm{text-decoration:line-through;color:var(--mute)}
+.rm{border:0;background:none;color:var(--mute);font-size:16px;padding:6px}
+.big{width:100%;max-height:34vh;object-fit:contain;background:var(--soft);border-radius:14px;padding:10px}
+.tag{display:inline-block;background:var(--soft);border:0;border-radius:999px;padding:4px 10px;font-size:13px;margin:0 6px 6px 0}
+textarea.json{width:100%;height:140px;font:12px monospace}
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+.gbox{max-width:360px;width:100%;text-align:center}
+.logo{font-size:46px;font-weight:800;letter-spacing:-.03em;color:var(--acc);margin-bottom:6px}
+</style>
+</head>
+<body>
+<div id="gate" class="gate"><div class="gbox"><div class="logo">pcklst</div><p class="sub">Lade …</p></div></div>
+<div class="wrap">
+  <div class="top">
+    <div><h1 id="title">pcklst</h1><div class="sub" id="count"></div></div>
+    <div class="r"><div class="total" id="totalBox"><b id="total">0 g</b><span class="sub" id="totalLbl">Gesamtgewicht</span></div>
+    <button class="gear" id="gear" aria-label="Einstellungen">⚙</button></div>
+  </div>
+  <div id="banner"></div>
+  <div id="main"></div>
+</div>
+<button class="fab" id="add" aria-label="Hinzufügen">+</button>
+<nav class="nav"><div class="in-nav" id="nav"></div></nav>
+<div class="ov" id="ov"><div class="sheet" id="sheet"></div></div>
+
+<script type="module">
+
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
+import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
+import {initializeFirestore,getFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,getDoc,getDocs,deleteDoc,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+import {firebaseConfig,ADMIN_EMAIL} from './firebase-config.js';
+
+/* =============== Firebase =============== */
+const configured=!/DEIN|YOUR/i.test(firebaseConfig.apiKey||'DEIN');
+let app,auth,fdb,UID=null,userEmail='',unsubs=[];
+if(configured){
+  app=initializeApp(firebaseConfig);auth=getAuth(app);
+  try{fdb=initializeFirestore(app,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()}),ignoreUndefinedProperties:true})}
+  catch(e){fdb=getFirestore(app)}
+}
+const ref=(...p)=>doc(fdb,'users',UID,...p);
+// Schreibzugriffe nicht abwarten: offline wird später synchronisiert
+const store={
+  put(s,o){setDoc(ref(s,o.id),o).catch(console.error);return Promise.resolve()},
+  del(s,id){deleteDoc(ref(s,id)).catch(console.error);return Promise.resolve()},
+  setMeta(k,v){setDoc(ref('meta',k),{v}).catch(console.error);return Promise.resolve()}
+};
+const saveItem_=it=>store.put('items',it);
+const saveTour_=t=>store.put('tours',t);
+
+const photoCache={};
+async function loadPhotos(ids){
+  const out=[];
+  for(const id of ids){
+    if(!photoCache[id]){try{const sn=await getDoc(ref('images',id));if(sn.exists())photoCache[id]=sn.data().data}catch(e){}}
+    if(photoCache[id])out.push({id,data:photoCache[id]});
+  }
+  return out;
+}
+async function persistPhotos(d){
+  const keep=new Set(d.photos.filter(p=>p.id).map(p=>p.id));
+  const old=(items.find(i=>i.id===d.id)||{}).photoIds||[];
+  for(const id of old)if(!keep.has(id))deleteDoc(ref('images',id)).catch(()=>{});
+  for(const p of d.photos)if(!p.id){p.id=uid();photoCache[p.id]=p.data;setDoc(ref('images',p.id),{data:p.data}).catch(console.error)}
+  d.photoIds=d.photos.map(p=>p.id);
+}
+function canvasToDataUrl(c,maxLen=650000){ // bleibt weit unter dem 1-MB-Limit eines Firestore-Dokuments
+  let cur=c;
+  for(let k=0;k<8;k++){
+    const u=cur.toDataURL('image/webp',.85);
+    if(u.length<=maxLen)return u;
+    const n=document.createElement('canvas');n.width=Math.max(60,Math.round(cur.width*.8));n.height=Math.max(60,Math.round(cur.height*.8));
+    n.getContext('2d').drawImage(cur,0,0,n.width,n.height);cur=n;
+  }
+  return cur.toDataURL('image/webp',.7);
+}
+
+/* ---------- KI-Freistellung (läuft im Browser, ONNX-Modell) ---------- */
+let aiMod=null;
+async function aiCutout(blob){
+  aiMod=aiMod||await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
+  return await aiMod.removeBackground(blob,{model:'isnet_quint8',output:{format:'image/png'}});
+}
+function origBlob(){
+  const c=document.createElement('canvas');c.width=ed.w;c.height=ed.h;
+  c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(ed.orig),ed.w,ed.h),0,0);
+  return new Promise(r=>c.toBlob(r,'image/png'));
+}
+async function runAI(){
+  const cur=ed;if(!cur)return;
+  const st=$('#aiStat');if(st){st.style.color='';st.textContent='KI entfernt den Hintergrund … (beim ersten Mal lädt das Modell, ca. 40 MB)'}
+  try{
+    const res=await aiCutout(await origBlob());
+    if(ed!==cur)return;
+    const bm=await createImageBitmap(res);
+    const c=document.createElement('canvas');c.width=cur.w;c.height=cur.h;
+    const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(bm,0,0,cur.w,cur.h);
+    const d=x.getImageData(0,0,cur.w,cur.h).data;
+    for(let i=0;i<cur.w*cur.h;i++)cur.alpha[i]=d[i*4+3];
+    paintAll();const s2=$('#aiStat');if(s2)s2.textContent='Fertig. Mit dem Pinsel kannst du nachbessern.';
+  }catch(e){
+    console.error(e);if(ed!==cur)return;
+    autoRemove();paintAll();
+    const s2=$('#aiStat');if(s2){s2.style.color='var(--danger)';s2.textContent='KI nicht verfügbar – einfache Automatik verwendet.'}
+  }
+}
+
+/* =============== Zustand & Helfer =============== */
+const DEFAULT_CATS=['Rucksack & Taschen','Schlafen','Kochen & Essen','Kleidung','Schuhe & Füße','Navigation','Elektronik','Erste Hilfe & Hygiene','Werkzeug & Reparatur','Sicherheit','Sonstiges'];
+const CONDS=['Neu','Gut','Gebraucht','Reparaturbedürftig','Defekt'];
+const WT={base:'Basis',cons:'Verbrauch',worn:'Getragen'};
+let items=[],tours=[],cats=[];
+let view='cat',filter='all',query='',sort='name',wishQuery='';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=g=>g>=1000?(g/1000).toFixed(2).replace('.',',')+' kg':Math.round(g)+' g';
+const eur=v=>(+v).toLocaleString('de-DE',{style:'currency',currency:'EUR'});
+const dateDE=d=>d?new Date(d+'T00:00:00').toLocaleDateString('de-DE'):'';
+const today0=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const daysTo=d=>Math.round((new Date(d+'T00:00:00')-today0())/864e5);
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const itemW=it=>(+it.weight||0)*(+it.qty||1);
+const blobUrl=x=>x||null;
+const catItems=()=>items.filter(i=>!i.wish);
+const wishItems=()=>items.filter(i=>i.wish);
+const thumb=it=>it.img?`<img src="${blobUrl(it.img)}" alt="">`:'🎒';
+
+function expiryBadge(it){
+  if(!it.expiry)return '';const d=daysTo(it.expiry);
+  if(d<0)return '<span class="b red">abgelaufen</span>';
+  if(d<=30)return `<span class="b ora">läuft in ${d} T. ab</span>`;return '';
+}
+function badges(it){ // nur Dinge, die Aufmerksamkeit brauchen – sonst bleibt die Übersicht leer
+  const b=[expiryBadge(it)];
+  if(it.loanedTo)b.push('<span class="b">verliehen</span>');
+  if(it.cond==='Defekt'||it.cond==='Reparaturbedürftig')b.push(`<span class="b red">${it.cond==='Defekt'?'defekt':'reparieren'}</span>`);
+  if(it.wtype==='cons')b.push('<span class="b">Verbrauch</span>');
+  if(it.wtype==='worn')b.push('<span class="b">getragen</span>');
+  const s=b.filter(Boolean).join('');return s?`<div class="bd">${s}</div>`:'';
+}
+
+/* =============== Navigation / Rahmen =============== */
+const TABS=[['cat','🎒','Katalog'],['tour','🗓','Touren'],['wish','⭐','Wunschliste'],['stats','📊','Auswertung']];
+function renderNav(){
+  $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button class="${view===k?'on':''}" data-v="${k}"><i>${i}</i>${l}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>{view=b.dataset.v;render();window.scrollTo(0,0)});
+}
+function render(){
+  renderNav();
+  $('#add').style.display=view==='stats'?'none':'';
+  $('#totalBox').style.display=view==='stats'?'none':'';
+  ({cat:renderCatalog,tour:renderTours,wish:renderWish,stats:renderStats})[view]();
+}
+$('#add').onclick=()=>{if(view==='tour')openTourForm(null);else openEdit(null,view==='wish')};
+$('#gear').onclick=openSettings;
+
+function showSheet(html,keep){const s=$('#sheet'),st=s.scrollTop;s.innerHTML=html;$('#ov').classList.add('show');s.scrollTop=keep?st:0}
+function closeSheet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null;render()}
+$('#ov').addEventListener('pointerdown',e=>{if(e.target.id==='ov')closeSheet()});
+const head=(t,extra='')=>`<div class="sh-h"><h2>${t}</h2>${extra}<button class="x" id="cx">✕</button></div>`;
+const bindClose=()=>{const c=$('#cx');if(c)c.onclick=closeSheet};
+
+/* =============== Katalog =============== */
+function renderCatalog(){
+  $('#title').textContent='pcklst';$('#totalLbl').textContent='Gesamtgewicht';
+  const q=query.trim().toLowerCase();
+  const vis=catItems().filter(i=>(filter==='all'||i.cat===filter)&&(!q||[i.name,i.brand,i.note,i.color,(i.tags||[]).join(' ')].join(' ').toLowerCase().includes(q)));
+  $('#count').textContent=vis.length+(vis.length===1?' Gegenstand':' Gegenstände');
+  $('#total').textContent=fmt(vis.reduce((s,i)=>s+itemW(i),0));
+  const chips=['all',...cats].map(k=>`<button class="chip ${filter===k?'on':''}" data-k="${esc(k)}">${k==='all'?'Alle':esc(k)}</button>`).join('')+`<button class="chip ghost" data-k="__manage">⚙ Kategorien</button>`;
+  const cmp={name:(a,b)=>a.name.localeCompare(b.name,'de'),weight:(a,b)=>itemW(b)-itemW(a),new:(a,b)=>(b.created||0)-(a.created||0),used:(a,b)=>(b.lastUsed||0)-(a.lastUsed||0)}[sort];
+  let body;
+  if(!vis.length)body=`<div class="empty">${catItems().length?'Nichts gefunden.':'Noch nichts im Katalog.<br>Tippe auf <b>+</b>, um deinen ersten Gegenstand hinzuzufügen.'}</div>`;
+  else if(sort==='name'){
+    const g={};vis.forEach(i=>{(g[i.cat||'Ohne Kategorie']??=[]).push(i)});
+    body=[...cats,'Ohne Kategorie'].filter(k=>g[k]).map(k=>{const a=g[k].sort(cmp);
+      return `<div class="sec"><span>${esc(k)}</span><span>${fmt(a.reduce((s,i)=>s+itemW(i),0))}</span></div><div class="grid">${a.map(card).join('')}</div>`}).join('');
+  }else body=`<div class="grid" style="margin-top:6px">${vis.sort(cmp).map(card).join('')}</div>`;
+  $('#main').innerHTML=`<div class="srow"><input class="search" id="q" type="search" placeholder="Suchen (Name, Marke, Tag …)" value="${esc(query)}">
+    <select id="so"><option value="name">A–Z</option><option value="weight">Schwerste</option><option value="new">Neueste</option><option value="used">Zuletzt benutzt</option></select></div>
+    <div class="chips" id="chips">${chips}</div>${body}`;
+  $('#so').value=sort;$('#so').onchange=e=>{sort=e.target.value;render()};
+  $('#q').oninput=e=>{query=e.target.value;const p=e.target.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
+  $('#chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{if(b.dataset.k==='__manage')return openCats();filter=b.dataset.k;render()});
+  $('#main').querySelectorAll('.card').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+}
+function card(i){return `<button class="card" data-id="${i.id}"><div class="im">${i.img?`<img src="${blobUrl(i.img)}" alt="">`:'<span>🎒</span>'}</div>
+  <div class="tx"><div class="nm">${esc(i.name)}</div><div class="mt">${fmt(+i.weight||0)}${(+i.qty||1)>1?` × ${i.qty}`:''}</div>${badges(i)}</div></button>`}
+
+/* =============== Wunschliste =============== */
+function renderWish(){
+  $('#title').textContent='Wunschliste';$('#totalLbl').textContent='Kosten gesamt';
+  const w=wishItems().sort((a,b)=>a.name.localeCompare(b.name,'de'));
+  $('#count').textContent=w.length+(w.length===1?' Wunsch':' Wünsche')+(w.length?' · '+fmt(w.reduce((s,i)=>s+(+i.weight||0),0)):'');
+  $('#total').textContent=eur(w.reduce((s,i)=>s+(+i.price||0),0));
+  $('#main').innerHTML=w.length?w.map(i=>`<button class="lrow" data-id="${i.id}"><div class="th">${thumb(i)}</div>
+    <div class="tt"><div class="nm">${esc(i.name)}</div><div class="mt">${[i.weight?fmt(+i.weight):'',i.price?eur(i.price):'',i.cat].filter(Boolean).join(' · ')}</div></div></button>`).join('')
+    :`<div class="empty">Noch keine Wünsche.<br>Tippe auf <b>+</b>, um etwas zu merken, das du noch kaufen willst.</div>`;
+  $('#main').querySelectorAll('.lrow').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+}
+
+/* =============== Detailansicht (nur gefüllte Felder) =============== */
+function openDetail(id){
+  const it=items.find(i=>i.id===id);if(!it)return;
+  const kv=(l,v)=>v?`<div class="kv"><span>${l}</span><span>${v}</span></div>`:'';
+  const tot=(+it.qty||1)>1?` (${fmt(itemW(it))} gesamt)`:'';
+  const w=it.wish;
+  const lines=[
+    kv('Kategorie',esc(it.cat)),kv('Gewicht',it.weight?fmt(+it.weight)+(w?'':' × '+(it.qty||1))+(w?'':tot):''),
+    kv('Gewichtsart',!w&&it.wtype&&it.wtype!=='base'?WT[it.wtype]:''),
+    kv('Marke / Modell',esc(it.brand)),kv('Größe',esc(it.size)),kv('Farbe',esc(it.color)),
+    kv('Preis',it.price?eur(it.price):''),kv('Gekauft am',dateDE(it.buyDate)),kv('Garantie bis',dateDE(it.warranty)),
+    kv('Zustand',esc(it.cond)),kv('Haltbar bis',it.expiry?dateDE(it.expiry)+' '+expiryBadge(it):''),
+    kv('Verliehen an',it.loanedTo?esc(it.loanedTo)+(it.loanDate?' (seit '+dateDE(it.loanDate)+')':''):''),
+    kv('Benutzt',it.used?it.used+'× auf Tour'+(it.lastUsed?', zuletzt '+new Date(it.lastUsed).toLocaleDateString('de-DE'):''):''),
+  ].join('');
+  const tags=(it.tags||[]).map(t=>`<button class="tag" data-t="${esc(t)}">#${esc(t)}</button>`).join('');
+  showSheet(`${head(esc(it.name))}
+    ${it.img?`<img class="big" src="${blobUrl(it.img)}" alt="">`:''}
+    <div class="thumbs view" id="vph" style="margin-top:8px"></div>
+    <div class="panel" style="margin-top:10px">${lines||'<span class="sub">Keine Angaben.</span>'}</div>
+    ${tags?`<div>${tags}</div>`:''}
+    ${it.note?`<div class="panel"><h3>Notizen</h3>${esc(it.note).replace(/\n/g,'<br>')}</div>`:''}
+    <div class="row" style="margin-top:14px">${w?'<button class="btn pri" id="bought">✓ Gekauft</button>':''}<button class="btn ${w?'':'pri'}" id="edit">Bearbeiten</button></div>`);
+  bindClose();$('#edit').onclick=()=>openEdit(it);
+  loadPhotos(it.photoIds||[]).then(a=>{const e=$('#vph');if(e)e.innerHTML=a.map(p=>`<div class="t"><img src="${p.data}" alt=""></div>`).join('')});
+  const bo=$('#bought');if(bo)bo.onclick=async()=>{it.wish=false;it.buyDate=it.buyDate||new Date().toISOString().slice(0,10);it.qty=it.qty||1;it.wtype=it.wtype||'base';await saveItem_(it);view='cat';closeSheet()};
+  $('#sheet').querySelectorAll('.tag').forEach(b=>b.onclick=()=>{query=b.dataset.t;filter='all';view='cat';closeSheet()});
+}
+
+/* =============== Bearbeiten (alle Felder) =============== */
+let draft=null,ed=null;
+async function openEdit(it,wish){
+  draft=it?{...it,photos:await loadPhotos(it.photoIds||[])}:{id:uid(),name:'',cat:(filter!=='all'&&view==='cat')?filter:(cats[0]||''),weight:'',qty:1,wtype:'base',note:'',img:null,photos:[],tags:[],wish:!!wish,created:Date.now(),used:0};
+  const w=draft.wish;ed=null;
+  const filled=['brand','size','color','price','buyDate','warranty','cond','expiry','loanedTo','loanDate'].some(k=>draft[k])||(draft.tags||[]).length||draft.note;
+  const inp=(id,l,v,t='text',ph='')=>`<div><label class="f">${l}</label><input class="in" id="${id}" type="${t}" value="${esc(v)}" placeholder="${ph}"></div>`;
+  showSheet(`${head(it?'Bearbeiten':(w?'Neuer Wunsch':'Neuer Gegenstand'))}
+  <div id="imgArea"></div>
+  <div class="row" id="pickRow">
+    <label class="btn pick">📷 Foto aufnehmen<input type="file" id="fCam" accept="image/*" capture="environment"></label>
+    <label class="btn pick">🖼 Aus Galerie<input type="file" id="fGal" accept="image/*"></label>
+  </div>
+  <div class="hint" id="imgErr"></div>
+  <label class="f">Name</label><input class="in" id="fn" value="${esc(draft.name)}" placeholder="z. B. Daunenschlafsack">
+  <label class="f">Kategorie</label>
+  <select class="in" id="fc">${[...cats,''].map(c=>`<option value="${esc(c)}" ${draft.cat===c?'selected':''}>${c||'Ohne Kategorie'}</option>`).join('')}</select>
+  <div class="row">${inp('fw','Gewicht (g)',draft.weight,'number')}${w?inp('fp','Preis (€)',draft.price||'','number'):inp('fq','Anzahl',draft.qty,'number')}</div>
+  ${w?'':`<label class="f">Gewichtsart</label><div class="seg" id="wt">${Object.entries(WT).map(([k,l])=>`<button type="button" data-k="${k}" class="${(draft.wtype||'base')===k?'on':''}">${l}</button>`).join('')}</div>
+  <div class="hint">Basis = fester Packinhalt · Verbrauch = Essen, Gas, Wasser · Getragen = Kleidung am Körper</div>`}
+  <details class="more" ${filled?'open':''}><summary>Weitere Angaben</summary>
+    <div class="row">${inp('fb','Marke / Modell',draft.brand||'')}${inp('fs','Größe',draft.size||'')}</div>
+    <div class="row">${inp('fcol','Farbe',draft.color||'')}${inp('ft','Tags (mit Komma)',(draft.tags||[]).join(', '),'text','Winter, Ultraleicht')}</div>
+    ${w?'':`<div class="row">${inp('fp','Preis (€)',draft.price||'','number')}${inp('fbd','Gekauft am',draft.buyDate||'','date')}</div>
+    <div class="row">${inp('fwa','Garantie bis',draft.warranty||'','date')}${inp('fex','Haltbar bis',draft.expiry||'','date')}</div>
+    <label class="f">Zustand</label><select class="in" id="fcond"><option value="">–</option>${CONDS.map(c=>`<option ${draft.cond===c?'selected':''}>${c}</option>`).join('')}</select>
+    <div class="row">${inp('flo','Verliehen an',draft.loanedTo||'')}${inp('fld','Verliehen seit',draft.loanDate||'','date')}</div>`}
+    <label class="f">Weitere Fotos</label><div class="thumbs" id="thumbs"></div>
+    <label class="btn pick sm" style="margin-top:6px">+ Foto hinzufügen<input type="file" id="fExtra" accept="image/*" multiple></label>
+    <label class="f">Notizen</label><textarea class="in" id="fo" rows="3" placeholder="Zustand, Reparaturen, Hinweise …">${esc(draft.note)}</textarea>
+  </details>
+  <div class="row" style="margin-top:18px">
+    ${it?'<button class="btn dng" id="del">Löschen</button>':''}
+    <button class="btn pri" id="save">Speichern</button>
+  </div>`);
+  bindClose();drawImgArea();drawThumbs();
+  for(const id of ['#fCam','#fGal'])$(id).onchange=async e=>{
+    const f=e.target.files[0];e.target.value='';if(!f)return;
+    try{await startEditor(f)}catch(err){imgErr(err)}};
+  $('#fExtra').onchange=async e=>{
+    const fs=[...e.target.files].slice(0,6);e.target.value='';
+    try{for(const f of fs)if(draft.photos.length<8)draft.photos.push({id:null,data:await shrink(f)});drawThumbs()}catch(err){imgErr(err)}};
+  const wt=$('#wt');if(wt)wt.querySelectorAll('button').forEach(b=>b.onclick=()=>{draft.wtype=b.dataset.k;wt.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#save').onclick=saveItem;
+  const d=$('#del');if(d)d.onclick=async()=>{
+    if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Wirklich löschen?';setTimeout(()=>{d.classList.remove('arm');d.textContent='Löschen'},3000);return}
+    await store.del('items',draft.id);for(const pid of (draft.photoIds||[]))deleteDoc(ref('images',pid)).catch(()=>{});items=items.filter(x=>x.id!==draft.id);
+    for(const t of tours){const n=t.entries.length;t.entries=t.entries.filter(e=>e.id!==draft.id);if(t.entries.length!==n)await saveTour_(t)}
+    closeSheet()};
+}
+const imgErr=err=>{const e=$('#imgErr');if(e){e.textContent='Das Bild konnte nicht geladen werden ('+(err&&err.message||err)+').';e.style.color='var(--danger)'}};
+function drawImgArea(){
+  const u=draft.img?blobUrl(draft.img):null;
+  $('#imgArea').innerHTML=u?`<div class="stage"><img src="${u}" style="max-width:100%;max-height:40vh;padding:8px" alt=""></div>`:`<div class="stage none">Noch kein Bild</div>`;
+}
+function drawThumbs(){
+  const t=$('#thumbs');if(!t)return;
+  t.innerHTML=draft.photos.map((p,i)=>`<div class="t"><img src="${p.data}" alt=""><button type="button" data-i="${i}">✕</button></div>`).join('')||'<span class="hint">Keine weiteren Fotos.</span>';
+  t.querySelectorAll('button').forEach(b=>b.onclick=()=>{draft.photos.splice(+b.dataset.i,1);drawThumbs()});
+}
+async function shrink(f,max=900){
+  const bmp=await loadBitmap(f),sw=bmp.width||bmp.naturalWidth,sh=bmp.height||bmp.naturalHeight,s=Math.min(1,max/Math.max(sw,sh));
+  const c=document.createElement('canvas');c.width=Math.round(sw*s);c.height=Math.round(sh*s);c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',.82);
+}
+async function saveItem(){
+  const name=$('#fn').value.trim();
+  if(!name){$('#fn').focus();$('#fn').style.borderColor='var(--danger)';return}
+  if(ed&&ed.active)draft.img=await exportCutout();
+  const g=id=>{const e=$(id);return e?e.value.trim():undefined};
+  const set={name,cat:$('#fc').value,weight:parseFloat($('#fw').value)||0,note:$('#fo').value.trim(),updated:Date.now(),
+    brand:g('#fb'),size:g('#fs'),color:g('#fcol'),tags:(g('#ft')||'').split(',').map(t=>t.trim().replace(/^#/,'')).filter(Boolean),
+    price:parseFloat(g('#fp'))||'',buyDate:g('#fbd'),warranty:g('#fwa'),expiry:g('#fex'),cond:g('#fcond'),loanedTo:g('#flo'),loanDate:g('#fld')};
+  if($('#fq'))set.qty=Math.max(1,parseInt($('#fq').value)||1);
+  for(const k in set)if(set[k]===undefined)delete set[k];
+  Object.assign(draft,set);
+  if(draft.loanedTo==='')draft.loanDate='';
+  await persistPhotos(draft);
+  const rec={...draft};delete rec.photos;
+  await store.put('items',rec);
+  const i=items.findIndex(x=>x.id===rec.id);if(i>=0)items[i]=rec;else items.push(rec);
+  closeSheet();
+}
+
+/* =============== Freistell-Editor =============== */
+const MAXD=720;
+async function loadBitmap(f){
+  try{return await createImageBitmap(f,{imageOrientation:'from-image'})}catch(_){
+    return await new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src=URL.createObjectURL(f)})}
+}
+async function startEditor(f){
+  const bmp=await loadBitmap(f);
+  const sw=bmp.width||bmp.naturalWidth,sh=bmp.height||bmp.naturalHeight,s=Math.min(1,MAXD/Math.max(sw,sh));
+  const w=Math.round(sw*s),h=Math.round(sh*s);
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const cx=cv.getContext('2d',{willReadFrequently:true});cx.drawImage(bmp,0,0,w,h);
+  const v=cx.getImageData(0,0,w,h);
+  ed={active:true,w,h,cv,cx,view:v,orig:new Uint8ClampedArray(v.data),alpha:new Uint8ClampedArray(w*h).fill(255),tool:'erase',size:22};
+  $('#pickRow').style.display='none';
+  $('#imgArea').innerHTML=`<div class="stage" id="stage"></div>
+   <div class="tools"><button type="button" class="btn on" data-t="erase">Entfernen</button><button type="button" class="btn" data-t="restore">Zurückholen</button></div>
+   <label class="f">Pinselgröße</label><input type="range" id="bs" min="6" max="60" value="22">
+   <div class="hint" id="aiStat"></div>
+   <div class="row"><button type="button" class="btn" id="aibtn">KI-Freistellung</button><button type="button" class="btn" id="simple">Einfache Automatik</button></div>
+   <label class="f">Toleranz der einfachen Automatik</label><input type="range" id="tol" min="5" max="90" value="38">
+   <div class="hint">Mit dem Pinsel kannst du nachbessern.</div>
+   <div class="row" style="margin-top:8px"><button type="button" class="btn" id="again">Anderes Foto</button></div>`;
+  $('#stage').appendChild(cv);cv.style.cursor='crosshair';
+  paintAll();
+  $('#aibtn').onclick=runAI;
+  $('#simple').onclick=()=>{autoRemove();paintAll()};
+  $('#tol').onchange=()=>{autoRemove();paintAll()};
+  runAI();
+  $('#bs').oninput=e=>ed.size=+e.target.value;
+  $('#imgArea').querySelectorAll('.tools .btn').forEach(b=>b.onclick=()=>{ed.tool=b.dataset.t;$('#imgArea').querySelectorAll('.tools .btn').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#again').onclick=()=>{ed=null;$('#pickRow').style.display='';drawImgArea()};
+  bindBrush(cv);
+}
+function autoRemove(){
+  const {w,h,orig,alpha}=ed,thr=(+$('#tol').value*3)**2;
+  const R=[],G=[],B=[];
+  const sample=(x,y)=>{const p=(y*w+x)*4;R.push(orig[p]);G.push(orig[p+1]);B.push(orig[p+2])};
+  for(let x=0;x<w;x++){sample(x,0);sample(x,h-1)}for(let y=0;y<h;y++){sample(0,y);sample(w-1,y)}
+  const med=a=>a.sort((p,q)=>p-q)[a.length>>1];
+  const br=med(R),bg=med(G),bb=med(B);
+  const close=i=>{const p=i*4,dr=orig[p]-br,dg=orig[p+1]-bg,db=orig[p+2]-bb;return dr*dr+dg*dg+db*db<=thr};
+  alpha.fill(255);
+  const seen=new Uint8Array(w*h),q=new Int32Array(w*h);let qh=0,qt=0;
+  const push=i=>{if(!seen[i]&&close(i)){seen[i]=1;q[qt++]=i}};
+  for(let x=0;x<w;x++){push(x);push((h-1)*w+x)}for(let y=0;y<h;y++){push(y*w);push(y*w+w-1)}
+  while(qh<qt){const i=q[qh++],x=i%w,y=(i/w)|0;
+    if(x>0)push(i-1);if(x<w-1)push(i+1);if(y>0)push(i-w);if(y<h-1)push(i+w);}
+  for(let i=0;i<w*h;i++)if(seen[i])alpha[i]=0;
+}
+function paintAll(){paintRect(0,0,ed.w,ed.h)}
+function paintRect(x0,y0,x1,y1){
+  const {w,view:v,orig,alpha,cx}=ed;
+  x0=Math.max(0,x0|0);y0=Math.max(0,y0|0);x1=Math.min(ed.w,Math.ceil(x1));y1=Math.min(ed.h,Math.ceil(y1));
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=y*w+x,p=i*4;v.data[p]=orig[p];v.data[p+1]=orig[p+1];v.data[p+2]=orig[p+2];v.data[p+3]=alpha[i]}
+  cx.putImageData(v,0,0,x0,y0,x1-x0,y1-y0);
+}
+function bindBrush(cv){
+  let down=false,last=null;
+  const pt=e=>{const r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*ed.w/r.width,y:(e.clientY-r.top)*ed.h/r.height}};
+  const dab=(x,y)=>{
+    const r=ed.size,v=ed.tool==='erase'?0:255,{w,h,alpha}=ed;
+    const x0=Math.max(0,Math.floor(x-r)),x1=Math.min(w-1,Math.ceil(x+r)),y0=Math.max(0,Math.floor(y-r)),y1=Math.min(h-1,Math.ceil(y+r));
+    for(let yy=y0;yy<=y1;yy++)for(let xx=x0;xx<=x1;xx++)if((xx-x)**2+(yy-y)**2<=r*r)alpha[yy*w+xx]=v;
+    paintRect(x0,y0,x1+1,y1+1);
+  };
+  const stroke=(a,b)=>{const d=Math.hypot(b.x-a.x,b.y-a.y),n=Math.max(1,Math.ceil(d/(ed.size/3)));
+    for(let i=1;i<=n;i++)dab(a.x+(b.x-a.x)*i/n,a.y+(b.y-a.y)*i/n)};
+  cv.onpointerdown=e=>{if(!ed)return;down=true;cv.setPointerCapture(e.pointerId);last=pt(e);dab(last.x,last.y);e.preventDefault()};
+  cv.onpointermove=e=>{if(!down||!ed)return;const p=pt(e);stroke(last,p);last=p};
+  cv.onpointerup=cv.onpointercancel=()=>{down=false};
+}
+async function exportCutout(){
+  const {w,h,orig,alpha}=ed;
+  const sm=new Uint8ClampedArray(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let s=0,n=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const xx=x+dx,yy=y+dy;if(xx>=0&&yy>=0&&xx<w&&yy<h){s+=alpha[yy*w+xx];n++}}
+    sm[y*w+x]=alpha[y*w+x]===0?0:s/n;
+  }
+  let minX=w,minY=h,maxX=-1,maxY=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(sm[y*w+x]>16){if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y}
+  if(maxX<0){minX=0;minY=0;maxX=w-1;maxY=h-1}
+  const pad=4;minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad);
+  const cw=maxX-minX+1,ch=maxY-minY+1,out=document.createElement('canvas');out.width=cw;out.height=ch;
+  const ctx=out.getContext('2d'),id=ctx.createImageData(cw,ch);
+  for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){
+    const i=(y+minY)*w+(x+minX),p=i*4,o=(y*cw+x)*4;
+    id.data[o]=orig[p];id.data[o+1]=orig[p+1];id.data[o+2]=orig[p+2];id.data[o+3]=sm[i];
+  }
+  ctx.putImageData(id,0,0);
+  return canvasToDataUrl(out);
+}
+
+/* =============== Touren / Packlisten =============== */
+const tourRows=t=>t.entries.map(e=>({e,it:items.find(i=>i.id===e.id)})).filter(r=>r.it);
+function tourSums(t){
+  const s={base:0,cons:0,worn:0};
+  for(const {it} of tourRows(t))s[it.wtype||'base']+=itemW(it);
+  return {...s,pack:s.base+s.cons,all:s.base+s.cons+s.worn};
+}
+function renderTours(){
+  $('#title').textContent='Touren & Packlisten';$('#totalLbl').textContent='';
+  $('#count').textContent=tours.filter(t=>!t.template).length+' Touren';$('#total').textContent='';
+  const sec=(label,arr)=>arr.length?`<div class="sec"><span>${label}</span></div>`+arr.map(t=>{
+    const r=tourRows(t),packed=r.filter(x=>x.e.packed).length,s=tourSums(t);
+    return `<button class="lrow" data-id="${t.id}"><div class="th" style="font-size:24px">${t.template?'📋':t.done?'✅':'🎒'}</div>
+    <div class="tt"><div class="nm">${esc(t.name)}</div><div class="mt">${[t.date?dateDE(t.date):'',r.length+' Teile',fmt(s.pack)+' Rucksack',(!t.template&&!t.done&&r.length)?packed+'/'+r.length+' gepackt':''].filter(Boolean).join(' · ')}</div></div></button>`}).join(''):'';
+  const act=tours.filter(t=>!t.template&&!t.done).sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
+  const done=tours.filter(t=>!t.template&&t.done).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const tpl=tours.filter(t=>t.template);
+  $('#main').innerHTML=tours.length?sec('Geplant',act)+sec('Vorlagen',tpl)+sec('Abgeschlossen',done)
+    :`<div class="empty">Noch keine Tour.<br>Tippe auf <b>+</b>, um eine Packliste anzulegen.</div>`;
+  $('#main').querySelectorAll('.lrow').forEach(b=>b.onclick=()=>openTour(b.dataset.id));
+}
+function openTourForm(t){
+  showSheet(`${head(t?'Tour bearbeiten':'Neue Tour')}
+  <label class="f">Name</label><input class="in" id="tn" value="${esc(t?.name||'')}" placeholder="z. B. Harz Wochenende">
+  <div class="row"><div><label class="f">Datum</label><input class="in" id="td" type="date" value="${esc(t?.date||'')}"></div>
+  <div><label class="f">Gewichtsziel Rucksack (kg)</label><input class="in" id="tg" type="number" step="0.1" min="0" value="${esc(t?.target||'')}" placeholder="optional"></div></div>
+  ${t?'':`<label class="f">Starten mit</label><select class="in" id="ts"><option value="">Leerer Liste</option>${tours.map(x=>`<option value="${x.id}">${x.template?'Vorlage':'Kopie von'}: ${esc(x.name)}</option>`).join('')}</select>`}
+  <div class="row" style="margin-top:18px"><button class="btn pri" id="tsave">${t?'Speichern':'Anlegen'}</button></div>`);
+  bindClose();
+  $('#tsave').onclick=async()=>{
+    const name=$('#tn').value.trim();if(!name){$('#tn').focus();return}
+    const f={name,date:$('#td').value,target:parseFloat($('#tg').value)||''};
+    if(t){Object.assign(t,f);await saveTour_(t);openTour(t.id);render();return}
+    const src=tours.find(x=>x.id===$('#ts').value);
+    const nt={id:uid(),...f,template:false,done:false,counted:[],entries:src?src.entries.map(e=>({id:e.id,packed:false})):[]};
+    tours.push(nt);await saveTour_(nt);openTour(nt.id);render();
+  };
+}
+function openTour(tid,keep){
+  const t=tours.find(x=>x.id===tid);if(!t)return;
+  const rows=tourRows(t),s=tourSums(t),packed=rows.filter(r=>r.e.packed).length;
+  const g={};rows.forEach(r=>{(g[r.it.cat||'Ohne Kategorie']??=[]).push(r)});
+  const list=[...cats,'Ohne Kategorie'].filter(k=>g[k]).map(k=>`<div class="sec"><span>${esc(k)}</span><span>${fmt(g[k].reduce((a,r)=>a+itemW(r.it),0))}</span></div>`+
+    g[k].sort((a,b)=>a.it.name.localeCompare(b.it.name,'de')).map(({e,it})=>`<div class="ck ${e.packed?'packed':''}">
+      ${t.template?'':`<input type="checkbox" data-c="${it.id}" ${e.packed?'checked':''}>`}<div class="th">${it.img?`<img src="${blobUrl(it.img)}" alt="">`:''}</div>
+      <div class="tt"><div class="nm">${esc(it.name)}</div><div class="mt">${fmt(itemW(it))}${it.wtype&&it.wtype!=='base'?' · '+WT[it.wtype]:''}</div></div>
+      <button class="rm" data-r="${it.id}" aria-label="Entfernen">✕</button></div>`).join('')).join('');
+  const goal=+t.target?t.target*1000:0,pct=goal?Math.min(100,s.pack/goal*100):0;
+  showSheet(`${head(esc(t.name))}
+  <div class="sub" style="margin:-4px 0 10px">${[t.date?dateDE(t.date):'',t.template?'Vorlage':t.done?'Abgeschlossen':''].filter(Boolean).join(' · ')}</div>
+  <div class="panel"><div class="stat3"><div><b>${fmt(s.pack)}</b><span>Rucksack</span></div><div><b>${fmt(s.base)}</b><span>Basis</span></div><div><b>${fmt(s.cons)}</b><span>Verbrauch</span></div></div>
+    ${s.worn?`<div class="kv" style="margin-top:8px"><span>Getragen (nicht im Rucksack)</span><span>${fmt(s.worn)}</span></div>`:''}
+    ${goal?`<div class="brow" style="margin-top:10px"><div class="l"><span>Ziel ${fmt(goal)}</span><span style="color:${s.pack>goal?'var(--danger)':'inherit'}">${s.pack>goal?'+'+fmt(s.pack-goal)+' drüber':fmt(goal-s.pack)+' frei'}</span></div><div class="bar ${s.pack>goal?'over':''}"><i style="width:${pct}%"></i></div></div>`:''}
+    ${t.template?'':`<div class="hint" style="margin-top:8px">${packed} von ${rows.length} gepackt</div>`}</div>
+  <div class="row"><button class="btn pri" id="tadd">+ Gegenstände</button>${t.template||!rows.length?'':(t.done?'<button class="btn" id="treopen">Wieder öffnen</button>':'<button class="btn" id="tfin">Tour abschließen</button>')}</div>
+  ${list||'<div class="empty">Noch leer. Füge Gegenstände aus deinem Katalog hinzu.</div>'}
+  <details class="more"><summary>Mehr Optionen</summary>
+    <div class="row" style="margin-top:8px"><button class="btn" id="tedit">Name / Datum / Ziel</button><button class="btn" id="tdup">Duplizieren</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="ttpl">${t.template?'Nicht mehr Vorlage':'Als Vorlage markieren'}</button><button class="btn dng" id="tdel">Löschen</button></div>
+    ${t.done?'':'<div class="hint">„Tour abschließen“ zählt die gepackten Teile als benutzt.</div>'}</details>`,keep);
+  bindClose();
+  $('#tadd').onclick=()=>openPicker(tid);
+  $('#sheet').querySelectorAll('[data-c]').forEach(c=>c.onchange=async()=>{t.entries.find(e=>e.id===c.dataset.c).packed=c.checked;await saveTour_(t);openTour(tid,true)});
+  $('#sheet').querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{t.entries=t.entries.filter(e=>e.id!==b.dataset.r);await saveTour_(t);openTour(tid,true)});
+  $('#tedit').onclick=()=>openTourForm(t);
+  $('#ttpl').onclick=async()=>{t.template=!t.template;await saveTour_(t);openTour(tid)};
+  $('#tdup').onclick=async()=>{const nt={...t,id:uid(),name:t.name+' (Kopie)',done:false,template:false,counted:[],entries:t.entries.map(e=>({id:e.id,packed:false}))};tours.push(nt);await saveTour_(nt);openTour(nt.id)};
+  const d=$('#tdel');d.onclick=async()=>{
+    if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Wirklich löschen?';setTimeout(()=>{d.classList.remove('arm');d.textContent='Löschen'},3000);return}
+    await unfinish(t);await store.del('tours',t.id);tours=tours.filter(x=>x.id!==t.id);closeSheet()};
+  const f=$('#tfin');if(f)f.onclick=async()=>{
+    const ids=rows.filter(r=>r.e.packed).map(r=>r.it.id);
+    for(const id of ids){const it=items.find(i=>i.id===id);it.used=(it.used||0)+1;it.lastUsed=Date.now();await saveItem_(it)}
+    t.done=true;t.counted=ids;await saveTour_(t);openTour(tid)};
+  const ro=$('#treopen');if(ro)ro.onclick=async()=>{await unfinish(t);t.done=false;await saveTour_(t);openTour(tid)};
+}
+async function unfinish(t){
+  for(const id of t.counted||[]){const it=items.find(i=>i.id===id);if(it&&it.used>0){it.used--;await saveItem_(it)}}
+  t.counted=[];
+}
+function openPicker(tid){
+  const t=tours.find(x=>x.id===tid);let pq='';
+  showSheet(`${head('Gegenstände wählen')}<input class="search" id="pq" type="search" placeholder="Suchen …"><div id="pl"></div>
+    <div class="row" style="margin-top:14px"><button class="btn pri" id="pdone">Fertig</button></div>`);
+  bindClose();
+  const draw=()=>{
+    const set=new Set(t.entries.map(e=>e.id)),q=pq.toLowerCase();
+    const arr=catItems().filter(i=>!q||(i.name+' '+(i.tags||[]).join(' ')+' '+(i.brand||'')).toLowerCase().includes(q));
+    const g={};arr.forEach(i=>{(g[i.cat||'Ohne Kategorie']??=[]).push(i)});
+    $('#pl').innerHTML=arr.length?[...cats,'Ohne Kategorie'].filter(k=>g[k]).map(k=>`<div class="sec"><span>${esc(k)}</span></div>`+
+      g[k].sort((a,b)=>a.name.localeCompare(b.name,'de')).map(i=>`<label class="ck"><input type="checkbox" data-i="${i.id}" ${set.has(i.id)?'checked':''}>
+      <div class="th">${i.img?`<img src="${blobUrl(i.img)}" alt="">`:''}</div><div class="tt"><div class="nm">${esc(i.name)}</div><div class="mt">${fmt(itemW(i))}</div></div></label>`).join('')).join('')
+      :'<div class="empty">Keine Gegenstände im Katalog.</div>';
+    $('#pl').querySelectorAll('input').forEach(c=>c.onchange=async()=>{
+      if(c.checked){if(!t.entries.some(e=>e.id===c.dataset.i))t.entries.push({id:c.dataset.i,packed:false})}
+      else t.entries=t.entries.filter(e=>e.id!==c.dataset.i);
+      await saveTour_(t)});
+  };
+  $('#pq').oninput=e=>{pq=e.target.value;draw()};
+  $('#pdone').onclick=()=>openTour(tid);
+  draw();
+}
+
+/* =============== Auswertung (nur Abschnitte mit Inhalt) =============== */
+function renderStats(){
+  $('#title').textContent='Auswertung';$('#count').textContent='';
+  const a=catItems();
+  if(!a.length){$('#main').innerHTML='<div class="empty">Sobald du Gegenstände im Katalog hast, siehst du hier Auswertungen.</div>';return}
+  const sum=k=>a.filter(i=>(i.wtype||'base')===k).reduce((s,i)=>s+itemW(i),0);
+  const val=a.reduce((s,i)=>s+(+i.price||0)*(+i.qty||1),0);
+  const byCat={};a.forEach(i=>{const k=i.cat||'Ohne Kategorie';byCat[k]=(byCat[k]||0)+itemW(i)});
+  const cl=Object.entries(byCat).sort((x,y)=>y[1]-x[1]),mx=cl[0][1]||1;
+  const list=arr=>arr.map(i=>`<button class="lrow" data-id="${i.id}" style="margin-bottom:6px"><div class="th">${thumb(i)}</div><div class="tt"><div class="nm">${esc(i.name)}</div><div class="mt">${i.mt||''}</div></div></button>`).join('');
+  const heavy=a.slice().sort((x,y)=>itemW(y)-itemW(x)).slice(0,5).filter(i=>itemW(i)>0).map(i=>({...i,mt:fmt(itemW(i))}));
+  const exp=a.filter(i=>i.expiry&&daysTo(i.expiry)<=60).sort((x,y)=>x.expiry.localeCompare(y.expiry)).map(i=>({...i,mt:(daysTo(i.expiry)<0?'abgelaufen am ':'haltbar bis ')+dateDE(i.expiry)}));
+  const loan=a.filter(i=>i.loanedTo).map(i=>({...i,mt:'an '+i.loanedTo+(i.loanDate?' seit '+dateDE(i.loanDate):'')}));
+  const fix=a.filter(i=>i.cond==='Defekt'||i.cond==='Reparaturbedürftig').map(i=>({...i,mt:i.cond}));
+  const anyDone=tours.some(t=>t.done);
+  const unused=anyDone?a.filter(i=>!i.used&&(i.wtype||'base')!=='cons').map(i=>({...i,mt:fmt(itemW(i))})):[];
+  const P=(t,b)=>b?`<div class="panel"><h3>${t}</h3>${b}</div>`:'';
+  $('#main').innerHTML=
+    P('Übersicht',`<div class="kv"><span>Gegenstände</span><span>${a.length}</span></div><div class="kv"><span>Gesamtgewicht</span><span>${fmt(sum('base')+sum('cons')+sum('worn'))}</span></div>
+      <div class="kv"><span>Basis</span><span>${fmt(sum('base'))}</span></div>${sum('cons')?`<div class="kv"><span>Verbrauch</span><span>${fmt(sum('cons'))}</span></div>`:''}${sum('worn')?`<div class="kv"><span>Getragen</span><span>${fmt(sum('worn'))}</span></div>`:''}
+      ${val?`<div class="kv"><span>Gesamtwert</span><span>${eur(val)}</span></div>`:''}`)+
+    P('Gewicht je Kategorie',cl.filter(c=>c[1]>0).map(([k,v])=>`<div class="brow"><div class="l"><span>${esc(k)}</span><span>${fmt(v)}</span></div><div class="bar"><i style="width:${v/mx*100}%"></i></div></div>`).join(''))+
+    P('Schwerste Gegenstände',list(heavy))+P('Läuft bald ab',list(exp))+P('Verliehen',list(loan))+P('Reparatur nötig',list(fix))+
+    P('Noch nie auf Tour',list(unused)+(unused.length?'<div class="hint">Basierend auf abgeschlossenen Touren – vielleicht kann etwas davon raus?</div>':''))+
+    (anyDone?'':'<div class="hint" style="text-align:center">Schließe Touren ab, dann siehst du hier auch, was du nie benutzt.</div>');
+  $('#main').querySelectorAll('.lrow').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+}
+
+/* =============== Einstellungen: Kategorien & Backup =============== */
+function openSettings(){
+  const admin=userEmail===String(ADMIN_EMAIL).toLowerCase();
+  showSheet(`${head('Einstellungen')}
+  <div class="panel"><h3>Konto</h3><div class="kv"><span>Angemeldet als</span><span>${esc(userEmail)}</span></div>
+    <button class="btn" id="logout" style="width:100%;margin-top:8px">Abmelden</button></div>
+  <div class="panel"><h3>Kategorien</h3><button class="btn" id="scat" style="width:100%">Kategorien verwalten</button></div>
+  <div class="panel"><h3>Backup</h3>
+    <div class="row"><button class="btn" id="sexp">Exportieren</button><label class="btn pick">Importieren<input type="file" id="simp" accept=".json,application/json"></label></div>
+    <div class="hint">Enthält Gegenstände, Fotos, Touren und Kategorien. Beim Import werden Einträge mit gleicher ID überschrieben, alles andere bleibt.</div>
+    <div id="sout"></div></div>
+  ${admin?'<div class="panel"><h3>Zugriff</h3><div id="adm"></div></div>':''}`);
+  bindClose();$('#scat').onclick=openCats;
+  $('#logout').onclick=async()=>{await signOut(auth);closeSheet()};
+  $('#sexp').onclick=doExport;
+  $('#simp').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f)doImport(await f.text())};
+  if(admin)drawAdmin();
+}
+async function drawAdmin(){
+  const box=$('#adm');if(!box)return;
+  let list=[];try{list=(await getDocs(collection(fdb,'allowed'))).docs.map(d=>d.id)}catch(e){console.error(e)}
+  box.innerHTML=`<div class="hint">Diese Google-Konten dürfen pcklst nutzen (du selbst immer).</div>`+
+    list.sort().map(m=>`<div class="catrow"><div class="in" style="padding-top:11px;overflow:hidden;text-overflow:ellipsis">${esc(m)}</div><button class="btn dng" data-m="${esc(m)}">Entfernen</button></div>`).join('')+
+    `<div class="catrow" style="margin-top:8px"><input class="in" id="newm" type="email" placeholder="name@gmail.com"><button class="btn pri" id="addm">Zulassen</button></div>`;
+  box.querySelectorAll('[data-m]').forEach(b=>b.onclick=async()=>{try{await deleteDoc(doc(fdb,'allowed',b.dataset.m))}catch(e){console.error(e)}drawAdmin()});
+  $('#addm').onclick=async()=>{const m=$('#newm').value.trim().toLowerCase();if(!m.includes('@'))return;
+    try{await setDoc(doc(fdb,'allowed',m),{added:Date.now()})}catch(e){console.error(e)}drawAdmin()};
+}
+async function doExport(){
+  const out=$('#sout');out.innerHTML='<div class="hint">Erstelle Backup …</div>';
+  try{
+    const pm={};(await getDocs(collection(fdb,'users',UID,'images'))).forEach(d=>{pm[d.id]=d.data().data});
+    const data={v:2,cats,tours,items:items.map(i=>({...i,photos:(i.photoIds||[]).map(id=>pm[id]).filter(Boolean)}))};
+    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='pcklst-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();
+    out.innerHTML='<div class="hint">Backup erstellt.</div>';
+  }catch(e){console.error(e);out.innerHTML='<div class="hint" style="color:var(--danger)">Export fehlgeschlagen.</div>'}
+}
+async function doImport(txt){
+  const out=$('#sout');
+  try{
+    const d=JSON.parse(txt);let n=0;
+    for(const raw of d.items||[]){
+      const it={...raw};const ph=Array.isArray(it.photos)?it.photos:[];delete it.photos;
+      it.photoIds=[];
+      for(const p of ph){if(typeof p!=='string')continue;const id=uid();photoCache[id]=p;setDoc(ref('images',id),{data:p}).catch(console.error);it.photoIds.push(id)}
+      if(it.img&&typeof it.img!=='string')it.img=null;
+      await store.put('items',it);n++;
+    }
+    for(const t of d.tours||[])await store.put('tours',t);
+    const nc=cats.slice();for(const c of d.cats||[])if(!nc.includes(c))nc.push(c);
+    await store.setMeta('cats',nc);
+    out.innerHTML=`<div class="hint">${n} Gegenstände importiert.</div>`;
+  }catch(e){console.error(e);out.innerHTML='<div class="hint" style="color:var(--danger)">Das hat nicht geklappt – ist das ein gültiges Backup?</div>'}
+}
+
+function openCats(){
+  const draw=()=>{
+    showSheet(`${head('Kategorien')}
+    ${cats.map((c,i)=>`<div class="catrow"><input class="in" value="${esc(c)}" data-i="${i}"><button class="btn dng" data-d="${i}">Löschen</button></div>`).join('')}
+    <div class="catrow"><input class="in" id="newc" placeholder="Neue Kategorie …"><button class="btn pri" id="addc">Hinzufügen</button></div>
+    <p class="hint">Beim Löschen landen die Gegenstände unter „Ohne Kategorie“.</p>`);
+    bindClose();
+    $('#sheet').querySelectorAll('input[data-i]').forEach(inp=>inp.onchange=async()=>{
+      const i=+inp.dataset.i,old=cats[i],nv=inp.value.trim();
+      if(!nv||cats.includes(nv)){inp.value=old;return}
+      cats[i]=nv;for(const it of items)if(it.cat===old){it.cat=nv;await saveItem_(it)}
+      if(filter===old)filter=nv;await store.setMeta('cats',cats)});
+    $('#sheet').querySelectorAll('button[data-d]').forEach(b=>b.onclick=async()=>{
+      const old=cats[+b.dataset.d];cats.splice(+b.dataset.d,1);
+      for(const it of items)if(it.cat===old){it.cat='';await saveItem_(it)}
+      if(filter===old)filter='all';await store.setMeta('cats',cats);draw()});
+    const add=async()=>{const v=$('#newc').value.trim();if(!v||cats.includes(v))return;cats.push(v);await store.setMeta('cats',cats);draw()};
+    $('#addc').onclick=add;$('#newc').onkeydown=e=>{if(e.key==='Enter')add()};
+  };draw();
+}
+
+/* =============== Start & Anmeldung =============== */
+const gate=$('#gate');
+const setGate=h=>{gate.style.display='flex';gate.innerHTML=`<div class="gbox"><div class="logo">pcklst</div>${h}</div>`};
+function showLogin(msg){
+  setGate(`<p class="sub">Dein Ausrüstungs-Katalog fürs Wandern.</p>${msg?`<p style="color:var(--danger)">${esc(msg)}</p>`:''}<button class="btn pri" id="gl" style="width:100%">Mit Google anmelden</button>`);
+  $('#gl').onclick=login;
+}
+async function login(){
+  const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+  try{await signInWithPopup(auth,p)}
+  catch(e){
+    if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment'){
+      try{await signInWithRedirect(auth,p)}catch(e2){showLogin('Anmeldung fehlgeschlagen: '+(e2.code||e2.message))}
+    }else if(e.code!=='auth/popup-closed-by-user'&&e.code!=='auth/cancelled-popup-request')showLogin('Anmeldung fehlgeschlagen: '+(e.code||e.message));
+  }
+}
+function startSync(){
+  stopSync();
+  unsubs.push(onSnapshot(collection(fdb,'users',UID,'items'),sn=>{items=sn.docs.map(d=>d.data());render()},e=>console.error(e)));
+  unsubs.push(onSnapshot(collection(fdb,'users',UID,'tours'),sn=>{tours=sn.docs.map(d=>d.data());render()},e=>console.error(e)));
+  unsubs.push(onSnapshot(ref('meta','cats'),sn=>{
+    if(sn.exists())cats=sn.data().v||[];
+    else if(!sn.metadata.fromCache){cats=DEFAULT_CATS.slice();store.setMeta('cats',cats)}
+    render()},e=>console.error(e)));
+}
+function stopSync(){unsubs.forEach(u=>u());unsubs=[];items=[];tours=[];cats=[]}
+
+if(!configured){
+  setGate('<p>pcklst ist noch nicht eingerichtet.</p><p class="sub">Trage deine Firebase-Daten in <b>firebase-config.js</b> ein (siehe SETUP.md).</p>');
+}else{
+  onAuthStateChanged(auth,async user=>{
+    if(!user){stopSync();UID=null;userEmail='';closeSheetQuiet();showLogin();return}
+    UID=user.uid;userEmail=(user.email||'').toLowerCase();
+    setGate('<p class="sub">Prüfe Zugriff …</p>');
+    let ok=userEmail===String(ADMIN_EMAIL).toLowerCase();
+    if(!ok){try{ok=(await getDoc(doc(fdb,'allowed',userEmail))).exists()}catch(e){ok=false}}
+    if(!ok){
+      setGate(`<p style="color:var(--danger)"><b>Kein Zugriff</b></p><p class="sub">Das Konto ${esc(userEmail)} ist für pcklst nicht freigegeben. Bitte den Besitzer, dich zuzulassen.</p><button class="btn" id="go" style="width:100%">Mit anderem Konto anmelden</button>`);
+      $('#go').onclick=()=>signOut(auth);return;
+    }
+    gate.style.display='none';startSync();render();
+  });
+}
+function closeSheetQuiet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null}
+</script>
+</body>
+</html>
