@@ -6,6 +6,7 @@
 <title>pcklst</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#2f6b4f">
 <style>
 :root{
@@ -126,6 +127,12 @@ input[type=range]{width:100%;accent-color:var(--acc)}
 .big{width:100%;max-height:34vh;object-fit:contain;background:var(--soft);border-radius:14px;padding:10px}
 .tag{display:inline-block;background:var(--soft);border:0;border-radius:999px;padding:4px 10px;font-size:13px;margin:0 6px 6px 0}
 textarea.json{width:100%;height:140px;font:12px monospace}
+.chk{display:flex;align-items:center;gap:10px;margin:12px 0 0;font-size:14px}
+.chk input{width:20px;height:20px;accent-color:var(--acc);flex:none}
+.card{cursor:pointer}
+.step{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13px;color:var(--mute)}
+.step b{min-width:22px;text-align:center;color:var(--ink);font-size:16px}
+.step button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--soft);font-size:18px;line-height:1;color:var(--ink)}
 .gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
 .gbox{max-width:360px;width:100%;text-align:center}
 .logo{font-size:46px;font-weight:800;letter-spacing:-.03em;color:var(--acc);margin-bottom:6px}
@@ -150,7 +157,7 @@ textarea.json{width:100%;height:140px;font:12px monospace}
 
 import {initializeApp} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js';
 import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithRedirect,onAuthStateChanged,signOut} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js';
-import {initializeFirestore,getFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,getDoc,getDocs,deleteDoc,onSnapshot} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
+import {initializeFirestore,getFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,getDoc,getDocs,deleteDoc,onSnapshot,query as fsQuery,where} from 'https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js';
 import {firebaseConfig,ADMIN_EMAIL} from './firebase-config.js';
 
 /* =============== Firebase =============== */
@@ -202,16 +209,29 @@ function canvasToDataUrl(c,maxLen=650000){ // bleibt weit unter dem 1-MB-Limit e
 let aiMod=null;
 async function aiCutout(blob){
   aiMod=aiMod||await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.7.0/+esm');
-  return await aiMod.removeBackground(blob,{model:'isnet_quint8',output:{format:'image/png'}});
+  return await aiMod.removeBackground(blob,{model:'isnet_fp16',output:{format:'image/png'}});
 }
 function origBlob(){
   const c=document.createElement('canvas');c.width=ed.w;c.height=ed.h;
   c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(ed.orig),ed.w,ed.h),0,0);
   return new Promise(r=>c.toBlob(r,'image/png'));
 }
+function borderUniform(){
+  const {w,h,orig}=ed;let n=0,sr=0,sg=0,sb=0,sq=0;
+  const add=(x,y)=>{const p=(y*w+x)*4,r=orig[p],g=orig[p+1],b=orig[p+2];n++;sr+=r;sg+=g;sb+=b;sq+=r*r+g*g+b*b};
+  for(let x=0;x<w;x++){add(x,0);add(x,h-1)}for(let y=0;y<h;y++){add(0,y);add(w-1,y)}
+  const mr=sr/n,mg=sg/n,mb=sb/n;
+  return Math.sqrt(Math.max(0,sq/n-(mr*mr+mg*mg+mb*mb)))<18;
+}
+function erodeAlpha(){
+  if(!ed)return;const {w,h,alpha}=ed,src=alpha.slice();
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(src[i]<100)continue;
+    if((x>0&&src[i-1]<100)||(x<w-1&&src[i+1]<100)||(y>0&&src[i-w]<100)||(y<h-1&&src[i+w]<100))alpha[i]=0}
+  paintAll();
+}
 async function runAI(){
   const cur=ed;if(!cur)return;
-  const st=$('#aiStat');if(st){st.style.color='';st.textContent='KI entfernt den Hintergrund … (beim ersten Mal lädt das Modell, ca. 40 MB)'}
+  const st=$('#aiStat');if(st){st.style.color='';st.textContent='KI entfernt den Hintergrund … (beim ersten Mal lädt das Modell, ca. 80 MB)'}
   try{
     const res=await aiCutout(await origBlob());
     if(ed!==cur)return;
@@ -242,7 +262,8 @@ const dateDE=d=>d?new Date(d+'T00:00:00').toLocaleDateString('de-DE'):'';
 const today0=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
 const daysTo=d=>Math.round((new Date(d+'T00:00:00')-today0())/864e5);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-const itemW=it=>(+it.weight||0)*(+it.qty||1);
+const qty=i=>(i.qty===0||+i.qty>0)?+i.qty:1;
+const itemW=it=>(+it.weight||0)*qty(it);
 const blobUrl=x=>x||null;
 const catItems=()=>items.filter(i=>!i.wish);
 const wishItems=()=>items.filter(i=>i.wish);
@@ -263,7 +284,7 @@ function badges(it){ // nur Dinge, die Aufmerksamkeit brauchen – sonst bleibt 
 }
 
 /* =============== Navigation / Rahmen =============== */
-const TABS=[['cat','🎒','Katalog'],['tour','🗓','Touren'],['wish','⭐','Wunschliste'],['stats','📊','Auswertung']];
+const TABS=[['cat','🎒','Katalog'],['tour','📋','Listen'],['wish','⭐','Wunschliste'],['stats','📊','Auswertung']];
 function renderNav(){
   $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button class="${view===k?'on':''}" data-v="${k}"><i>${i}</i>${l}</button>`).join('');
   $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>{view=b.dataset.v;render();window.scrollTo(0,0)});
@@ -274,11 +295,12 @@ function render(){
   $('#totalBox').style.display=view==='stats'?'none':'';
   ({cat:renderCatalog,tour:renderTours,wish:renderWish,stats:renderStats})[view]();
 }
-$('#add').onclick=()=>{if(view==='tour')openTourForm(null);else openEdit(null,view==='wish')};
+$('#add').onclick=()=>{if(view==='tour')openListForm(null);else openEdit(null,view==='wish')};
 $('#gear').onclick=openSettings;
 
-function showSheet(html,keep){const s=$('#sheet'),st=s.scrollTop;s.innerHTML=html;$('#ov').classList.add('show');s.scrollTop=keep?st:0}
-function closeSheet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null;render()}
+let sheetMode=null;
+function showSheet(html,keep){sheetMode=null;const s=$('#sheet'),st=s.scrollTop;s.innerHTML=html;$('#ov').classList.add('show');s.scrollTop=keep?st:0}
+function closeSheet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null;sheetMode=null;render()}
 $('#ov').addEventListener('pointerdown',e=>{if(e.target.id==='ov')closeSheet()});
 const head=(t,extra='')=>`<div class="sh-h"><h2>${t}</h2>${extra}<button class="x" id="cx">✕</button></div>`;
 const bindClose=()=>{const c=$('#cx');if(c)c.onclick=closeSheet};
@@ -306,9 +328,17 @@ function renderCatalog(){
   $('#q').oninput=e=>{query=e.target.value;const p=e.target.selectionStart;render();const n=$('#q');n.focus();n.setSelectionRange(p,p)};
   $('#chips').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{if(b.dataset.k==='__manage')return openCats();filter=b.dataset.k;render()});
   $('#main').querySelectorAll('.card').forEach(b=>b.onclick=()=>openDetail(b.dataset.id));
+  $('#main').querySelectorAll('.step button').forEach(b=>b.onclick=e=>{e.stopPropagation();stepQty(b.closest('.card').dataset.id,+b.dataset.s)});
 }
-function card(i){return `<button class="card" data-id="${i.id}"><div class="im">${i.img?`<img src="${blobUrl(i.img)}" alt="">`:'<span>🎒</span>'}</div>
-  <div class="tx"><div class="nm">${esc(i.name)}</div><div class="mt">${fmt(+i.weight||0)}${(+i.qty||1)>1?` × ${i.qty}`:''}</div>${badges(i)}</div></button>`}
+function card(i){const q=qty(i);return `<div class="card" role="button" tabindex="0" data-id="${i.id}"><div class="im">${i.img?`<img src="${blobUrl(i.img)}" alt="">`:'<span>🎒</span>'}</div>
+  <div class="tx"><div class="nm">${esc(i.name)}</div><div class="mt">${fmt(+i.weight||0)}${!i.stepper&&q!==1?` × ${q}`:''}</div>${i.stepper?`<div class="step"><span>Anzahl:</span><button type="button" data-s="-1" aria-label="weniger">−</button><b>${q}</b><button type="button" data-s="1" aria-label="mehr">+</button></div>`:''}${badges(i)}</div></div>`}
+const stepTimers={};
+function stepQty(id,d){
+  const it=items.find(i=>i.id===id);if(!it)return;
+  it.qty=Math.max(0,qty(it)+d);render();
+  clearTimeout(stepTimers[id]);
+  stepTimers[id]=setTimeout(()=>{const cur=items.find(i=>i.id===id);if(cur)saveItem_(cur)},600);
+}
 
 /* =============== Wunschliste =============== */
 function renderWish(){
@@ -326,10 +356,10 @@ function renderWish(){
 function openDetail(id){
   const it=items.find(i=>i.id===id);if(!it)return;
   const kv=(l,v)=>v?`<div class="kv"><span>${l}</span><span>${v}</span></div>`:'';
-  const tot=(+it.qty||1)>1?` (${fmt(itemW(it))} gesamt)`:'';
+  const tot=qty(it)>1?` (${fmt(itemW(it))} gesamt)`:'';
   const w=it.wish;
   const lines=[
-    kv('Kategorie',esc(it.cat)),kv('Gewicht',it.weight?fmt(+it.weight)+(w?'':' × '+(it.qty||1))+(w?'':tot):''),
+    kv('Kategorie',esc(it.cat)),kv('Gewicht',it.weight?fmt(+it.weight)+(w?'':' × '+qty(it))+(w?'':tot):''),
     kv('Gewichtsart',!w&&it.wtype&&it.wtype!=='base'?WT[it.wtype]:''),
     kv('Marke / Modell',esc(it.brand)),kv('Größe',esc(it.size)),kv('Farbe',esc(it.color)),
     kv('Preis',it.price?eur(it.price):''),kv('Gekauft am',dateDE(it.buyDate)),kv('Garantie bis',dateDE(it.warranty)),
@@ -369,7 +399,8 @@ async function openEdit(it,wish){
   <label class="f">Kategorie</label>
   <select class="in" id="fc">${[...cats,''].map(c=>`<option value="${esc(c)}" ${draft.cat===c?'selected':''}>${c||'Ohne Kategorie'}</option>`).join('')}</select>
   <div class="row">${inp('fw','Gewicht (g)',draft.weight,'number')}${w?inp('fp','Preis (€)',draft.price||'','number'):inp('fq','Anzahl',draft.qty,'number')}</div>
-  ${w?'':`<label class="f">Gewichtsart</label><div class="seg" id="wt">${Object.entries(WT).map(([k,l])=>`<button type="button" data-k="${k}" class="${(draft.wtype||'base')===k?'on':''}">${l}</button>`).join('')}</div>
+  ${w?'':`<label class="chk"><input type="checkbox" id="fst" ${draft.stepper?'checked':''}> +/− Regler direkt im Katalog anzeigen</label>
+  <label class="f">Gewichtsart</label><div class="seg" id="wt">${Object.entries(WT).map(([k,l])=>`<button type="button" data-k="${k}" class="${(draft.wtype||'base')===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="hint">Basis = fester Packinhalt · Verbrauch = Essen, Gas, Wasser · Getragen = Kleidung am Körper</div>`}
   <details class="more" ${filled?'open':''}><summary>Weitere Angaben</summary>
     <div class="row">${inp('fb','Marke / Modell',draft.brand||'')}${inp('fs','Größe',draft.size||'')}</div>
@@ -398,7 +429,7 @@ async function openEdit(it,wish){
   const d=$('#del');if(d)d.onclick=async()=>{
     if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Wirklich löschen?';setTimeout(()=>{d.classList.remove('arm');d.textContent='Löschen'},3000);return}
     await store.del('items',draft.id);for(const pid of (draft.photoIds||[]))deleteDoc(ref('images',pid)).catch(()=>{});items=items.filter(x=>x.id!==draft.id);
-    for(const t of tours){const n=t.entries.length;t.entries=t.entries.filter(e=>e.id!==draft.id);if(t.entries.length!==n)await saveTour_(t)}
+    for(const t of tours){if(!t.entries)continue;const n=t.entries.length;t.entries=t.entries.filter(e=>e.id!==draft.id);if(t.entries.length!==n)await saveTour_(t)}
     closeSheet()};
 }
 const imgErr=err=>{const e=$('#imgErr');if(e){e.textContent='Das Bild konnte nicht geladen werden ('+(err&&err.message||err)+').';e.style.color='var(--danger)'}};
@@ -424,7 +455,7 @@ async function saveItem(){
   const set={name,cat:$('#fc').value,weight:parseFloat($('#fw').value)||0,note:$('#fo').value.trim(),updated:Date.now(),
     brand:g('#fb'),size:g('#fs'),color:g('#fcol'),tags:(g('#ft')||'').split(',').map(t=>t.trim().replace(/^#/,'')).filter(Boolean),
     price:parseFloat(g('#fp'))||'',buyDate:g('#fbd'),warranty:g('#fwa'),expiry:g('#fex'),cond:g('#fcond'),loanedTo:g('#flo'),loanDate:g('#fld')};
-  if($('#fq'))set.qty=Math.max(1,parseInt($('#fq').value)||1);
+  if($('#fq')){set.stepper=$('#fst')?$('#fst').checked:false;const pq=parseInt($('#fq').value);set.qty=Math.max(set.stepper?0:1,Number.isFinite(pq)?pq:1)}
   for(const k in set)if(set[k]===undefined)delete set[k];
   Object.assign(draft,set);
   if(draft.loanedTo==='')draft.loanDate='';
@@ -454,16 +485,17 @@ async function startEditor(f){
    <div class="tools"><button type="button" class="btn on" data-t="erase">Entfernen</button><button type="button" class="btn" data-t="restore">Zurückholen</button></div>
    <label class="f">Pinselgröße</label><input type="range" id="bs" min="6" max="60" value="22">
    <div class="hint" id="aiStat"></div>
-   <div class="row"><button type="button" class="btn" id="aibtn">KI-Freistellung</button><button type="button" class="btn" id="simple">Einfache Automatik</button></div>
+   <div class="row"><button type="button" class="btn" id="aibtn">KI-Freistellung</button><button type="button" class="btn" id="simple">Einfache Automatik</button><button type="button" class="btn" id="erode">Rand enger</button></div>
    <label class="f">Toleranz der einfachen Automatik</label><input type="range" id="tol" min="5" max="90" value="38">
-   <div class="hint">Mit dem Pinsel kannst du nachbessern.</div>
+   <div class="hint">Tipp: Am besten gelingt es mit dem Gegenstand auf einem weißen Blatt oder einfarbigem Untergrund bei gutem Licht. Mit dem Pinsel kannst du nachbessern; „Rand enger“ entfernt helle Säume.</div>
    <div class="row" style="margin-top:8px"><button type="button" class="btn" id="again">Anderes Foto</button></div>`;
   $('#stage').appendChild(cv);cv.style.cursor='crosshair';
   paintAll();
   $('#aibtn').onclick=runAI;
   $('#simple').onclick=()=>{autoRemove();paintAll()};
+  $('#erode').onclick=erodeAlpha;
   $('#tol').onchange=()=>{autoRemove();paintAll()};
-  runAI();
+  if(borderUniform()){autoRemove();paintAll();const s2=$('#aiStat');if(s2)s2.textContent='Einfarbiger Hintergrund erkannt – einfache Automatik verwendet. Reicht das nicht, tippe auf „KI-Freistellung“.'}else runAI();
   $('#bs').oninput=e=>ed.size=+e.target.value;
   $('#imgArea').querySelectorAll('.tools .btn').forEach(b=>b.onclick=()=>{ed.tool=b.dataset.t;$('#imgArea').querySelectorAll('.tools .btn').forEach(x=>x.classList.toggle('on',x===b))});
   $('#again').onclick=()=>{ed=null;$('#pickRow').style.display='';drawImgArea()};
@@ -528,106 +560,261 @@ async function exportCutout(){
   return canvasToDataUrl(out);
 }
 
-/* =============== Touren / Packlisten =============== */
-const tourRows=t=>t.entries.map(e=>({e,it:items.find(i=>i.id===e.id)})).filter(r=>r.it);
-function tourSums(t){
+/* =============== Listen (Packlisten, Touren, gemeinsame Listen) =============== */
+let shared=[];
+const allLists=()=>[...tours,...shared];
+const listById=id=>allLists().find(x=>x.id===id);
+const isTour=t=>t.type==='tour';
+const saveList=t=>{
+  if(t.shared){setDoc(doc(fdb,'shared',t.id),t).catch(console.error);return Promise.resolve()}
+  return store.put('tours',t);
+};
+const byName=(a,b)=>a.it.name.localeCompare(b.it.name,'de');
+
+// Eintrag = Katalog-Gegenstand {id,packed} oder freier Eintrag {id,name,weight,qty,wtype,cat,packed}
+function entryItem(e){
+  if(e.name!==undefined)return {id:e.id,name:e.name,weight:+e.weight||0,qty:qty(e),wtype:e.wtype||'base',cat:e.cat||'Andere',img:null,custom:true};
+  return items.find(i=>i.id===e.id);
+}
+const listRows=t=>(t.entries||[]).map(e=>({e,it:entryItem(e),l:t.id})).filter(r=>r.it);
+const rowsOf=t=>isTour(t)?(t.listIds||[]).map(listById).filter(Boolean).flatMap(listRows):listRows(t);
+function sums(rows){
   const s={base:0,cons:0,worn:0};
-  for(const {it} of tourRows(t))s[it.wtype||'base']+=itemW(it);
+  for(const {it} of rows)s[it.wtype||'base']+=itemW(it);
   return {...s,pack:s.base+s.cons,all:s.base+s.cons+s.worn};
 }
-function renderTours(){
-  $('#title').textContent='Touren & Packlisten';$('#totalLbl').textContent='';
-  $('#count').textContent=tours.filter(t=>!t.template).length+' Touren';$('#total').textContent='';
-  const sec=(label,arr)=>arr.length?`<div class="sec"><span>${label}</span></div>`+arr.map(t=>{
-    const r=tourRows(t),packed=r.filter(x=>x.e.packed).length,s=tourSums(t);
-    return `<button class="lrow" data-id="${t.id}"><div class="th" style="font-size:24px">${t.template?'📋':t.done?'✅':'🎒'}</div>
-    <div class="tt"><div class="nm">${esc(t.name)}</div><div class="mt">${[t.date?dateDE(t.date):'',r.length+' Teile',fmt(s.pack)+' Rucksack',(!t.template&&!t.done&&r.length)?packed+'/'+r.length+' gepackt':''].filter(Boolean).join(' · ')}</div></div></button>`}).join(''):'';
-  const act=tours.filter(t=>!t.template&&!t.done).sort((a,b)=>(a.date||'9').localeCompare(b.date||'9'));
-  const done=tours.filter(t=>!t.template&&t.done).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const tpl=tours.filter(t=>t.template);
-  $('#main').innerHTML=tours.length?sec('Geplant',act)+sec('Vorlagen',tpl)+sec('Abgeschlossen',done)
-    :`<div class="empty">Noch keine Tour.<br>Tippe auf <b>+</b>, um eine Packliste anzulegen.</div>`;
-  $('#main').querySelectorAll('.lrow').forEach(b=>b.onclick=()=>openTour(b.dataset.id));
+function groupRows(rows){
+  const g={};rows.forEach(r=>{(g[r.it.cat||'Ohne Kategorie']??=[]).push(r)});
+  const rank=k=>{const i=cats.indexOf(k);return k==='Andere'?1e6:k==='Ohne Kategorie'?1e6+1:i>=0?i:1000};
+  return Object.keys(g).sort((a,b)=>rank(a)-rank(b)||a.localeCompare(b,'de')).map(k=>[k,g[k].sort(byName)]);
 }
-function openTourForm(t){
-  showSheet(`${head(t?'Tour bearbeiten':'Neue Tour')}
-  <label class="f">Name</label><input class="in" id="tn" value="${esc(t?.name||'')}" placeholder="z. B. Harz Wochenende">
-  <div class="row"><div><label class="f">Datum</label><input class="in" id="td" type="date" value="${esc(t?.date||'')}"></div>
-  <div><label class="f">Gewichtsziel Rucksack (kg)</label><input class="in" id="tg" type="number" step="0.1" min="0" value="${esc(t?.target||'')}" placeholder="optional"></div></div>
-  ${t?'':`<label class="f">Starten mit</label><select class="in" id="ts"><option value="">Leerer Liste</option>${tours.map(x=>`<option value="${x.id}">${x.template?'Vorlage':'Kopie von'}: ${esc(x.name)}</option>`).join('')}</select>`}
-  <div class="row" style="margin-top:18px"><button class="btn pri" id="tsave">${t?'Speichern':'Anlegen'}</button></div>`);
+const rowHtml=(r,tpl)=>`<div class="ck ${r.e.packed?'packed':''}">
+  ${tpl?'':`<input type="checkbox" data-l="${r.l}" data-c="${r.e.id}" ${r.e.packed?'checked':''}>`}<div class="th">${r.it.img?`<img src="${blobUrl(r.it.img)}" alt="">`:''}</div>
+  <div class="tt"><div class="nm">${esc(r.it.name)}${qty(r.it)!==1?' × '+qty(r.it):''}</div><div class="mt">${[r.it.weight?fmt(itemW(r.it)):'',r.it.wtype&&r.it.wtype!=='base'?WT[r.it.wtype]:''].filter(Boolean).join(' · ')}</div></div>
+  <button class="rm" data-l="${r.l}" data-r="${r.e.id}" aria-label="Entfernen">✕</button></div>`;
+
+function copyEntries(src,toShared){
+  return (src.entries||[]).map(e=>{
+    const it=entryItem(e);if(!it)return null;
+    if(!toShared&&!it.custom)return {id:e.id,packed:false};
+    const c={id:'c_'+uid(),name:it.name,weight:it.weight||0,qty:qty(it),wtype:it.wtype||'base',packed:false};
+    if(it.cat&&it.cat!=='Andere')c.cat=it.cat;
+    if(e.src)c.src=e.src;else if(!it.custom)c.src=it.id;
+    return c;
+  }).filter(Boolean);
+}
+const CODE_CH='ABCDEFGHJKLMNPQRSTUVWXYZ';
+const genCode=()=>Array.from({length:6},()=>CODE_CH[Math.floor(Math.random()*CODE_CH.length)]).join('');
+async function newShared(base,entries){
+  let code=genCode();
+  for(let i=0;i<5;i++){try{if(!(await getDoc(doc(fdb,'shared',code))).exists())break}catch(e){break}code=genCode()}
+  const nt={...base,id:code,shared:true,owner:UID,members:[UID],memberNames:{[UID]:userEmail},entries};
+  shared.push(nt);await saveList(nt);return nt;
+}
+
+/* ---------- Übersicht ---------- */
+function renderTours(){
+  $('#title').textContent='Listen';$('#totalLbl').textContent='';
+  const L=allLists();
+  $('#count').textContent=L.filter(t=>!t.template).length+' Listen';$('#total').textContent='';
+  const row=t=>{
+    const r=rowsOf(t),s=sums(r),packed=r.filter(x=>x.e.packed).length;
+    const icon=t.template?'📋':t.done?'✅':isTour(t)?'🗓':t.shared?'👥':'🎒';
+    const meta=isTour(t)?[t.date?dateDE(t.date):'',(t.listIds||[]).length+' Listen',r.length+' Teile',fmt(s.pack)]
+      :[t.date?dateDE(t.date):'',r.length+' Teile',fmt(s.pack)+' Rucksack',t.shared?'gemeinsam':''];
+    if(!t.template&&!t.done&&r.length)meta.push(packed+'/'+r.length+' gepackt');
+    return `<button class="lrow" data-id="${t.id}"><div class="th" style="font-size:24px">${icon}</div><div class="tt"><div class="nm">${esc(t.name)}</div><div class="mt">${meta.filter(Boolean).join(' · ')}</div></div></button>`;
+  };
+  const sec=(label,arr)=>arr.length?`<div class="sec"><span>${label}</span></div>`+arr.map(row).join(''):'';
+  const byDate=(a,b)=>(a.date||'9').localeCompare(b.date||'9');
+  const tourA=L.filter(t=>isTour(t)&&!t.template&&!t.done).sort(byDate);
+  const packA=L.filter(t=>!isTour(t)&&!t.template&&!t.done).sort(byDate);
+  const tpl=L.filter(t=>t.template);
+  const done=L.filter(t=>!t.template&&t.done).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  $('#main').innerHTML=`<div class="row" style="margin-bottom:6px"><button class="btn" id="join">👥 Mit Code beitreten</button></div>`+
+    (L.length?sec('Touren',tourA)+sec('Packlisten',packA)+sec('Vorlagen',tpl)+sec('Abgeschlossen',done)
+      :`<div class="empty">Noch keine Liste.<br>Tippe auf <b>+</b>: eine Packliste für einen Rucksack oder eine Tasche – oder eine Tour, die mehrere Packlisten bündelt.</div>`);
+  $('#join').onclick=openJoin;
+  $('#main').querySelectorAll('.lrow').forEach(b=>b.onclick=()=>openList(b.dataset.id));
+}
+
+/* ---------- Beitreten ---------- */
+function openJoin(){
+  showSheet(`${head('Mit Code beitreten')}
+  <label class="f">6-stelliger Code</label>
+  <input class="in" id="jc" maxlength="6" autocapitalize="characters" placeholder="ABCDEF" style="text-transform:uppercase;letter-spacing:.2em;font-size:22px;text-align:center">
+  <div class="hint" id="jerr"></div>
+  <div class="row" style="margin-top:14px"><button class="btn pri" id="jgo">Beitreten</button></div>`);
   bindClose();
+  $('#jgo').onclick=async()=>{
+    const code=$('#jc').value.trim().toUpperCase(),err=$('#jerr');
+    const bad=m=>{err.style.color='var(--danger)';err.textContent=m};
+    if(code.length!==6)return bad('Der Code hat 6 Buchstaben.');
+    err.style.color='';err.textContent='Suche …';
+    try{
+      const sn=await getDoc(doc(fdb,'shared',code));
+      if(!sn.exists())return bad('Diesen Code gibt es nicht.');
+      const d=sn.data();
+      const members=[...new Set([...(d.members||[]),UID])],memberNames={...(d.memberNames||{}),[UID]:userEmail};
+      if(!(d.members||[]).includes(UID))await setDoc(doc(fdb,'shared',code),{members,memberNames},{merge:true});
+      if(!shared.some(x=>x.id===code))shared.push({...d,members,memberNames});
+      openList(code);
+    }catch(e){console.error(e);bad('Beitreten hat nicht geklappt. Bist du online und ist die Regel-Aktualisierung veröffentlicht?')}
+  };
+}
+
+/* ---------- Neu / Bearbeiten ---------- */
+function openListForm(t){
+  const edit=!!t;let kind=edit&&isTour(t)?'tour':'pack';
+  const packs=allLists().filter(x=>!isTour(x)&&!x.template&&(!edit||x.id!==t.id));
+  showSheet(`${head(edit?'Liste bearbeiten':'Neue Liste')}
+  ${edit?'':`<div class="seg" id="kind"><button type="button" data-k="pack" class="on">Packliste</button><button type="button" data-k="tour">Tour</button></div>
+  <div class="hint">Packliste = ein Rucksack oder eine Tasche. Tour = bündelt mehrere Packlisten.</div>`}
+  <label class="f">Name</label><input class="in" id="tn" value="${esc(t?t.name:'')}" placeholder="z. B. Harz Wochenende">
+  <div class="row"><div><label class="f">Datum</label><input class="in" id="td" type="date" value="${esc(t?t.date||'':'')}"></div>
+  <div><label class="f">Gewichtsziel (kg)</label><input class="in" id="tg" type="number" step="0.1" min="0" value="${esc(t?t.target||'':'')}" placeholder="optional"></div></div>
+  <div id="sec-pack">${edit?'':`<label class="f">Starten mit</label>
+    <select class="in" id="ts"><option value="">Leerer Liste</option>${allLists().filter(x=>!isTour(x)).map(x=>`<option value="${x.id}">${x.template?'Vorlage':'Kopie von'}: ${esc(x.name)}</option>`).join('')}</select>
+    <label class="chk"><input type="checkbox" id="tsh"> Gemeinsam bearbeiten (Einladungscode)</label>`}</div>
+  <div id="sec-tour"><label class="f">Packlisten in dieser Tour</label>
+    ${packs.length?packs.map(x=>`<label class="ck"><input type="checkbox" data-p="${x.id}" ${((t&&t.listIds)||[]).includes(x.id)?'checked':''}><div class="tt"><div class="nm">${esc(x.name)}${x.shared?' 👥':''}</div><div class="mt">${listRows(x).length} Teile</div></div></label>`).join(''):'<div class="hint">Lege zuerst Packlisten an.</div>'}</div>
+  <div class="row" style="margin-top:18px"><button class="btn pri" id="tsave">${edit?'Speichern':'Anlegen'}</button></div>`);
+  bindClose();
+  const apply=()=>{$('#sec-pack').style.display=kind==='pack'?'':'none';$('#sec-tour').style.display=kind==='tour'?'':'none'};
+  apply();
+  const kd=$('#kind');
+  if(kd)kd.querySelectorAll('button').forEach(b=>b.onclick=()=>{kind=b.dataset.k;kd.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));apply()});
+  const picked=()=>[...$('#sheet').querySelectorAll('[data-p]')].filter(c=>c.checked).map(c=>c.dataset.p);
   $('#tsave').onclick=async()=>{
     const name=$('#tn').value.trim();if(!name){$('#tn').focus();return}
     const f={name,date:$('#td').value,target:parseFloat($('#tg').value)||''};
-    if(t){Object.assign(t,f);await saveTour_(t);openTour(t.id);render();return}
-    const src=tours.find(x=>x.id===$('#ts').value);
-    const nt={id:uid(),...f,template:false,done:false,counted:[],entries:src?src.entries.map(e=>({id:e.id,packed:false})):[]};
-    tours.push(nt);await saveTour_(nt);openTour(nt.id);render();
+    if(edit){Object.assign(t,f);if(isTour(t))t.listIds=picked();await saveList(t);openList(t.id);return}
+    let nt;
+    if(kind==='tour'){
+      nt={id:uid(),type:'tour',...f,template:false,done:false,counted:[],listIds:picked()};
+      tours.push(nt);await saveList(nt);
+    }else{
+      const src=listById($('#ts').value),base={...f,type:'pack',template:false,done:false,counted:[]};
+      if($('#tsh').checked)nt=await newShared(base,src?copyEntries(src,true):[]);
+      else{nt={id:uid(),...base,entries:src?copyEntries(src,false):[]};tours.push(nt);await saveList(nt)}
+    }
+    openList(nt.id);
   };
 }
-function openTour(tid,keep){
-  const t=tours.find(x=>x.id===tid);if(!t)return;
-  const rows=tourRows(t),s=tourSums(t),packed=rows.filter(r=>r.e.packed).length;
-  const g={};rows.forEach(r=>{(g[r.it.cat||'Ohne Kategorie']??=[]).push(r)});
-  const list=[...cats,'Ohne Kategorie'].filter(k=>g[k]).map(k=>`<div class="sec"><span>${esc(k)}</span><span>${fmt(g[k].reduce((a,r)=>a+itemW(r.it),0))}</span></div>`+
-    g[k].sort((a,b)=>a.it.name.localeCompare(b.it.name,'de')).map(({e,it})=>`<div class="ck ${e.packed?'packed':''}">
-      ${t.template?'':`<input type="checkbox" data-c="${it.id}" ${e.packed?'checked':''}>`}<div class="th">${it.img?`<img src="${blobUrl(it.img)}" alt="">`:''}</div>
-      <div class="tt"><div class="nm">${esc(it.name)}</div><div class="mt">${fmt(itemW(it))}${it.wtype&&it.wtype!=='base'?' · '+WT[it.wtype]:''}</div></div>
-      <button class="rm" data-r="${it.id}" aria-label="Entfernen">✕</button></div>`).join('')).join('');
+
+/* ---------- Detailansicht ---------- */
+function openList(tid,keep){
+  const t=listById(tid);if(!t)return;
+  const tour=isTour(t),rows=rowsOf(t),s=sums(rows),packed=rows.filter(r=>r.e.packed).length;
   const goal=+t.target?t.target*1000:0,pct=goal?Math.min(100,s.pack/goal*100):0;
-  showSheet(`${head(esc(t.name))}
-  <div class="sub" style="margin:-4px 0 10px">${[t.date?dateDE(t.date):'',t.template?'Vorlage':t.done?'Abgeschlossen':''].filter(Boolean).join(' · ')}</div>
+  let body;
+  if(tour){
+    const ls=(t.listIds||[]).map(listById).filter(Boolean);
+    body=ls.map(l=>{
+      const lr=listRows(l).sort(byName);
+      return `<div class="panel"><div class="sh-h" style="margin:0 0 2px"><h2 style="font-size:17px">${esc(l.name)}${l.shared?' 👥':''}</h2><button class="btn sm" data-open="${l.id}">Öffnen</button></div>
+      <div class="hint" style="margin:0 0 4px">${fmt(sums(lr).pack)} Rucksack</div>${lr.map(r=>rowHtml(r,t.template)).join('')||'<div class="hint">Noch leer.</div>'}</div>`;
+    }).join('')||'<div class="empty">Noch keine Packlisten in dieser Tour.<br>Tippe auf <b>+ Packlisten</b>.</div>';
+  }else{
+    body=groupRows(rows).map(([k,g])=>`<div class="sec"><span>${esc(k)}</span><span>${fmt(g.reduce((a,r)=>a+itemW(r.it),0))}</span></div>`+g.map(r=>rowHtml(r,t.template)).join('')).join('')
+      ||'<div class="empty">Noch leer. Füge Gegenstände aus deinem Katalog hinzu oder trage unten etwas ein.</div>';
+  }
+  const leaveLbl=t.shared&&t.owner!==UID?'Verlassen':'Löschen';
+  showSheet(`${head(esc(t.name)+(t.shared?' 👥':''))}
+  <div class="sub" style="margin:-4px 0 10px">${[t.date?dateDE(t.date):'',tour?'Tour':'Packliste',t.template?'Vorlage':t.done?'Abgeschlossen':''].filter(Boolean).join(' · ')}</div>
   <div class="panel"><div class="stat3"><div><b>${fmt(s.pack)}</b><span>Rucksack</span></div><div><b>${fmt(s.base)}</b><span>Basis</span></div><div><b>${fmt(s.cons)}</b><span>Verbrauch</span></div></div>
     ${s.worn?`<div class="kv" style="margin-top:8px"><span>Getragen (nicht im Rucksack)</span><span>${fmt(s.worn)}</span></div>`:''}
     ${goal?`<div class="brow" style="margin-top:10px"><div class="l"><span>Ziel ${fmt(goal)}</span><span style="color:${s.pack>goal?'var(--danger)':'inherit'}">${s.pack>goal?'+'+fmt(s.pack-goal)+' drüber':fmt(goal-s.pack)+' frei'}</span></div><div class="bar ${s.pack>goal?'over':''}"><i style="width:${pct}%"></i></div></div>`:''}
     ${t.template?'':`<div class="hint" style="margin-top:8px">${packed} von ${rows.length} gepackt</div>`}</div>
-  <div class="row"><button class="btn pri" id="tadd">+ Gegenstände</button>${t.template||!rows.length?'':(t.done?'<button class="btn" id="treopen">Wieder öffnen</button>':'<button class="btn" id="tfin">Tour abschließen</button>')}</div>
-  ${list||'<div class="empty">Noch leer. Füge Gegenstände aus deinem Katalog hinzu.</div>'}
+  ${t.shared?`<div class="panel"><h3>Gemeinsame Liste</h3><div class="kv"><span>Einladungscode</span><span style="letter-spacing:.2em;font-size:18px">${t.id}</span></div>
+    <button class="btn sm" id="ccode" style="margin-top:6px">Code kopieren</button>
+    <div class="hint" style="margin-top:8px">Mitglieder: ${Object.values(t.memberNames||{}).map(esc).join(', ')}</div></div>`:''}
+  <div class="row">${tour?'<button class="btn pri" id="tlists">+ Packlisten</button>':'<button class="btn pri" id="tadd">+ Gegenstände</button>'}${t.template||!rows.length?'':(t.done?'<button class="btn" id="treopen">Wieder öffnen</button>':'<button class="btn" id="tfin">Abschließen</button>')}</div>
+  ${tour?'':`<div class="catrow" style="margin-top:10px"><input class="in" id="qa" placeholder="Anderes hinzufügen (z. B. Ausweis)"><input class="in" id="qw" type="number" placeholder="g" style="max-width:72px;flex:none"><button class="btn pri" id="qab">+</button></div>`}
+  ${body}
   <details class="more"><summary>Mehr Optionen</summary>
-    <div class="row" style="margin-top:8px"><button class="btn" id="tedit">Name / Datum / Ziel</button><button class="btn" id="tdup">Duplizieren</button></div>
-    <div class="row" style="margin-top:8px"><button class="btn" id="ttpl">${t.template?'Nicht mehr Vorlage':'Als Vorlage markieren'}</button><button class="btn dng" id="tdel">Löschen</button></div>
-    ${t.done?'':'<div class="hint">„Tour abschließen“ zählt die gepackten Teile als benutzt.</div>'}</details>`,keep);
+    <div class="row" style="margin-top:8px"><button class="btn" id="tedit">Name / Datum / Ziel</button><button class="btn" id="tdup">Kopie anlegen</button></div>
+    <div class="row" style="margin-top:8px"><button class="btn" id="ttpl">${t.template?'Nicht mehr Vorlage':'Als Vorlage markieren'}</button>${(!tour&&!t.shared)?'<button class="btn" id="tmk">Gemeinsam machen</button>':''}</div>
+    <div class="row" style="margin-top:8px"><button class="btn dng" id="tdel">${leaveLbl}</button></div>
+    ${t.done?'':'<div class="hint">„Abschließen“ zählt gepackte Katalog-Gegenstände als benutzt.</div>'}</details>`,keep);
   bindClose();
-  $('#tadd').onclick=()=>openPicker(tid);
-  $('#sheet').querySelectorAll('[data-c]').forEach(c=>c.onchange=async()=>{t.entries.find(e=>e.id===c.dataset.c).packed=c.checked;await saveTour_(t);openTour(tid,true)});
-  $('#sheet').querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{t.entries=t.entries.filter(e=>e.id!==b.dataset.r);await saveTour_(t);openTour(tid,true)});
-  $('#tedit').onclick=()=>openTourForm(t);
-  $('#ttpl').onclick=async()=>{t.template=!t.template;await saveTour_(t);openTour(tid)};
-  $('#tdup').onclick=async()=>{const nt={...t,id:uid(),name:t.name+' (Kopie)',done:false,template:false,counted:[],entries:t.entries.map(e=>({id:e.id,packed:false}))};tours.push(nt);await saveTour_(nt);openTour(nt.id)};
+  sheetMode={list:tid};
+  const sh=$('#sheet');
+  sh.querySelectorAll('[data-c]').forEach(c=>c.onchange=async()=>{
+    const l=listById(c.dataset.l);if(!l)return;const e=(l.entries||[]).find(x=>x.id===c.dataset.c);if(!e)return;
+    e.packed=c.checked;await saveList(l);openList(tid,true)});
+  sh.querySelectorAll('[data-r]').forEach(b=>b.onclick=async()=>{
+    const l=listById(b.dataset.l);if(!l)return;l.entries=(l.entries||[]).filter(x=>x.id!==b.dataset.r);await saveList(l);openList(tid,true)});
+  sh.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>openList(b.dataset.open));
+  const cc=$('#ccode');if(cc)cc.onclick=async()=>{try{await navigator.clipboard.writeText(t.id);cc.textContent='Kopiert ✓'}catch(e){cc.textContent='Code: '+t.id}};
+  const ta=$('#tadd');if(ta)ta.onclick=()=>openPicker(tid);
+  const tl=$('#tlists');if(tl)tl.onclick=()=>openListForm(t);
+  const qa=async()=>{
+    const v=$('#qa').value.trim();if(!v)return;const l=listById(tid);
+    l.entries=l.entries||[];l.entries.push({id:'c_'+uid(),name:v,weight:parseFloat($('#qw').value)||0,qty:1,wtype:'base',packed:false});
+    await saveList(l);openList(tid,true);const n=$('#qa');if(n)n.focus()};
+  if($('#qab')){$('#qab').onclick=qa;$('#qa').onkeydown=e=>{if(e.key==='Enter')qa()}}
+  $('#tedit').onclick=()=>openListForm(t);
+  $('#ttpl').onclick=async()=>{const l=listById(tid);l.template=!l.template;await saveList(l);openList(tid)};
+  $('#tdup').onclick=async()=>{
+    const l=listById(tid);
+    const nt={id:uid(),type:tour?'tour':'pack',name:l.name+' (Kopie)',date:'',target:l.target||'',template:false,done:false,counted:[],...(tour?{listIds:(l.listIds||[]).slice()}:{entries:copyEntries(l,false)})};
+    tours.push(nt);await saveList(nt);openList(nt.id)};
+  const mk=$('#tmk');if(mk)mk.onclick=async()=>{
+    const l=listById(tid);
+    const nt=await newShared({name:l.name,date:l.date||'',target:l.target||'',type:'pack',template:!!l.template,done:false,counted:[]},copyEntries(l,true));
+    for(const x of tours)if(isTour(x)&&(x.listIds||[]).includes(l.id)){x.listIds=x.listIds.map(i=>i===l.id?nt.id:i);await saveList(x)}
+    await store.del('tours',l.id);tours=tours.filter(x=>x.id!==l.id);openList(nt.id)};
   const d=$('#tdel');d.onclick=async()=>{
-    if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Wirklich löschen?';setTimeout(()=>{d.classList.remove('arm');d.textContent='Löschen'},3000);return}
-    await unfinish(t);await store.del('tours',t.id);tours=tours.filter(x=>x.id!==t.id);closeSheet()};
+    if(!d.classList.contains('arm')){d.classList.add('arm');d.textContent='Wirklich?';setTimeout(()=>{d.classList.remove('arm');d.textContent=leaveLbl},3000);return}
+    const l=listById(tid);if(!l)return;
+    await unfinish(l);
+    if(l.shared){
+      if(l.owner===UID)deleteDoc(doc(fdb,'shared',l.id)).catch(console.error);
+      else{const nm={...l.memberNames};delete nm[UID];setDoc(doc(fdb,'shared',l.id),{...l,members:l.members.filter(m=>m!==UID),memberNames:nm}).catch(console.error)}
+      shared=shared.filter(x=>x.id!==l.id);
+    }else{await store.del('tours',l.id);tours=tours.filter(x=>x.id!==l.id)}
+    for(const x of tours)if(isTour(x)&&(x.listIds||[]).includes(l.id)){x.listIds=x.listIds.filter(i=>i!==l.id);await saveList(x)}
+    closeSheet()};
   const f=$('#tfin');if(f)f.onclick=async()=>{
-    const ids=rows.filter(r=>r.e.packed).map(r=>r.it.id);
-    for(const id of ids){const it=items.find(i=>i.id===id);it.used=(it.used||0)+1;it.lastUsed=Date.now();await saveItem_(it)}
-    t.done=true;t.counted=ids;await saveTour_(t);openTour(tid)};
-  const ro=$('#treopen');if(ro)ro.onclick=async()=>{await unfinish(t);t.done=false;await saveTour_(t);openTour(tid)};
+    const l=listById(tid);
+    const ids=[...new Set(rowsOf(l).filter(r=>r.e.packed&&r.e.name===undefined).map(r=>r.it.id))];
+    for(const id of ids){const it=items.find(i=>i.id===id);if(it){it.used=(it.used||0)+1;it.lastUsed=Date.now();await saveItem_(it)}}
+    l.done=true;l.counted=ids;await saveList(l);openList(tid)};
+  const ro=$('#treopen');if(ro)ro.onclick=async()=>{const l=listById(tid);await unfinish(l);l.done=false;await saveList(l);openList(tid)};
 }
 async function unfinish(t){
   for(const id of t.counted||[]){const it=items.find(i=>i.id===id);if(it&&it.used>0){it.used--;await saveItem_(it)}}
   t.counted=[];
 }
+
+/* ---------- Gegenstände aus dem Katalog wählen ---------- */
 function openPicker(tid){
-  const t=tours.find(x=>x.id===tid);let pq='';
+  let pq='';
   showSheet(`${head('Gegenstände wählen')}<input class="search" id="pq" type="search" placeholder="Suchen …"><div id="pl"></div>
     <div class="row" style="margin-top:14px"><button class="btn pri" id="pdone">Fertig</button></div>`);
   bindClose();
+  const match=(l,e,i)=>l.shared?e.src===i.id:(e.name===undefined&&e.id===i.id);
   const draw=()=>{
-    const set=new Set(t.entries.map(e=>e.id)),q=pq.toLowerCase();
+    const t=listById(tid);if(!t)return;const q=pq.toLowerCase();
     const arr=catItems().filter(i=>!q||(i.name+' '+(i.tags||[]).join(' ')+' '+(i.brand||'')).toLowerCase().includes(q));
     const g={};arr.forEach(i=>{(g[i.cat||'Ohne Kategorie']??=[]).push(i)});
     $('#pl').innerHTML=arr.length?[...cats,'Ohne Kategorie'].filter(k=>g[k]).map(k=>`<div class="sec"><span>${esc(k)}</span></div>`+
-      g[k].sort((a,b)=>a.name.localeCompare(b.name,'de')).map(i=>`<label class="ck"><input type="checkbox" data-i="${i.id}" ${set.has(i.id)?'checked':''}>
+      g[k].sort((a,b)=>a.name.localeCompare(b.name,'de')).map(i=>`<label class="ck"><input type="checkbox" data-i="${i.id}" ${(t.entries||[]).some(e=>match(t,e,i))?'checked':''}>
       <div class="th">${i.img?`<img src="${blobUrl(i.img)}" alt="">`:''}</div><div class="tt"><div class="nm">${esc(i.name)}</div><div class="mt">${fmt(itemW(i))}</div></div></label>`).join('')).join('')
       :'<div class="empty">Keine Gegenstände im Katalog.</div>';
     $('#pl').querySelectorAll('input').forEach(c=>c.onchange=async()=>{
-      if(c.checked){if(!t.entries.some(e=>e.id===c.dataset.i))t.entries.push({id:c.dataset.i,packed:false})}
-      else t.entries=t.entries.filter(e=>e.id!==c.dataset.i);
-      await saveTour_(t)});
+      const l=listById(tid),i=items.find(x=>x.id===c.dataset.i);if(!l||!i)return;
+      l.entries=l.entries||[];
+      if(c.checked){
+        if(!l.entries.some(e=>match(l,e,i)))l.entries.push(l.shared
+          ?{id:'c_'+uid(),src:i.id,name:i.name,weight:+i.weight||0,qty:qty(i),wtype:i.wtype||'base',cat:i.cat||'',packed:false}
+          :{id:i.id,packed:false});
+      }else l.entries=l.entries.filter(e=>!match(l,e,i));
+      await saveList(l)});
   };
   $('#pq').oninput=e=>{pq=e.target.value;draw()};
-  $('#pdone').onclick=()=>openTour(tid);
+  $('#pdone').onclick=()=>openList(tid);
   draw();
 }
 
@@ -637,7 +824,7 @@ function renderStats(){
   const a=catItems();
   if(!a.length){$('#main').innerHTML='<div class="empty">Sobald du Gegenstände im Katalog hast, siehst du hier Auswertungen.</div>';return}
   const sum=k=>a.filter(i=>(i.wtype||'base')===k).reduce((s,i)=>s+itemW(i),0);
-  const val=a.reduce((s,i)=>s+(+i.price||0)*(+i.qty||1),0);
+  const val=a.reduce((s,i)=>s+(+i.price||0)*qty(i),0);
   const byCat={};a.forEach(i=>{const k=i.cat||'Ohne Kategorie';byCat[k]=(byCat[k]||0)+itemW(i)});
   const cl=Object.entries(byCat).sort((x,y)=>y[1]-x[1]),mx=cl[0][1]||1;
   const list=arr=>arr.map(i=>`<button class="lrow" data-id="${i.id}" style="margin-bottom:6px"><div class="th">${thumb(i)}</div><div class="tt"><div class="nm">${esc(i.name)}</div><div class="mt">${i.mt||''}</div></div></button>`).join('');
@@ -757,12 +944,16 @@ function startSync(){
   stopSync();
   unsubs.push(onSnapshot(collection(fdb,'users',UID,'items'),sn=>{items=sn.docs.map(d=>d.data());render()},e=>console.error(e)));
   unsubs.push(onSnapshot(collection(fdb,'users',UID,'tours'),sn=>{tours=sn.docs.map(d=>d.data());render()},e=>console.error(e)));
+  unsubs.push(onSnapshot(fsQuery(collection(fdb,'shared'),where('members','array-contains',UID)),sn=>{
+    shared=sn.docs.map(d=>d.data());render();
+    if(sheetMode&&sheetMode.list&&!['INPUT','TEXTAREA'].includes((document.activeElement||{}).tagName))openList(sheetMode.list,true)
+  },e=>console.error(e)));
   unsubs.push(onSnapshot(ref('meta','cats'),sn=>{
     if(sn.exists())cats=sn.data().v||[];
     else if(!sn.metadata.fromCache){cats=DEFAULT_CATS.slice();store.setMeta('cats',cats)}
     render()},e=>console.error(e)));
 }
-function stopSync(){unsubs.forEach(u=>u());unsubs=[];items=[];tours=[];cats=[]}
+function stopSync(){unsubs.forEach(u=>u());unsubs=[];items=[];tours=[];shared=[];cats=[]}
 
 if(!configured){
   setGate('<p>pcklst ist noch nicht eingerichtet.</p><p class="sub">Trage deine Firebase-Daten in <b>firebase-config.js</b> ein (siehe SETUP.md).</p>');
@@ -780,7 +971,7 @@ if(!configured){
     gate.style.display='none';startSync();render();
   });
 }
-function closeSheetQuiet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null}
+function closeSheetQuiet(){$('#ov').classList.remove('show');$('#sheet').innerHTML='';ed=null;sheetMode=null}
 </script>
 </body>
 </html>
